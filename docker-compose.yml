@@ -1,0 +1,29 @@
+services:
+  polaris:
+    image: apache/polaris:latest
+    ports:
+      - "8181:8181"  # REST API
+      - "8182:8182"  # health + metrics
+    environment:
+      # Bootstrap credentials: realm=POLARIS, client_id=root, client_secret=s3cr3t
+      # These are the credentials to use in the provider block during development.
+      POLARIS_BOOTSTRAP_CREDENTIALS: "POLARIS,root,s3cr3t"
+
+      # Expose the POLARIS realm
+      polaris.realm-context.realms: "POLARIS"
+
+      # Disable telemetry (speeds up startup)
+      quarkus.otel.sdk.disabled: "true"
+
+      # Allow FILE storage so testing works without cloud credentials
+      polaris.features."ALLOW_INSECURE_STORAGE_TYPES": "true"
+      polaris.features."SUPPORTED_CATALOG_STORAGE_TYPES": "[\"FILE\",\"S3\",\"GCS\",\"AZURE\"]"
+
+      # Let the server start even if non-critical checks fail
+      polaris.readiness.ignore-severe-issues: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8182/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
