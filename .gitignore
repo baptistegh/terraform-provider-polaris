@@ -3,3 +3,9 @@
 
 # binaries
 bin/
+
+# Go Releaser
+dist/
+
+# Claude
+.claude/settings.local.json

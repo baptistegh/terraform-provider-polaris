@@ -72,6 +72,18 @@ tidy:
 changelog:
 	git-cliff -o CHANGELOG.md
 
+.PHONY: release
+release:
+ifndef RELEASE_VERSION
+	$(error RELEASE_VERSION is required. Usage: make release RELEASE_VERSION=x.y.z)
+endif
+	@echo "Releasing v$(RELEASE_VERSION)..."
+	git-cliff --tag v$(RELEASE_VERSION) -o CHANGELOG.md
+	git add CHANGELOG.md
+	git commit -m "chore(release): v$(RELEASE_VERSION)"
+	git tag -a v$(RELEASE_VERSION) -m "v$(RELEASE_VERSION)"
+	@echo "Done. Push with: git push && git push --tags"
+
 .PHONY: clean
 clean:
 	rm -f $(BINARY)
