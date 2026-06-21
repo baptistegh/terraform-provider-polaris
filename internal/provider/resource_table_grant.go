@@ -44,29 +44,29 @@ func (r *tableGrantResource) Schema(_ context.Context, _ resource.SchemaRequest,
 		Description: "Grants a table-level privilege to a Polaris catalog role.",
 		Attributes: map[string]schema.Attribute{
 			"catalog": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"catalog_role": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog role receiving the grant. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog role receiving the grant. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"namespace": schema.ListAttribute{
-				Required:    true,
-				ElementType: types.StringType,
-				Description: "Namespace path as an ordered list of components. Changing this forces a new resource.",
+				Required:      true,
+				ElementType:   types.StringType,
+				Description:   "Namespace path as an ordered list of components. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.List{listRequiresReplace{}},
 			},
 			"table_name": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the table. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the table. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"privilege": schema.StringAttribute{
-				Required:    true,
-				Description: "The table-level privilege to grant (e.g. TABLE_READ_DATA, TABLE_WRITE_DATA). Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The table-level privilege to grant (e.g. TABLE_READ_DATA, TABLE_WRITE_DATA). Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
@@ -140,7 +140,8 @@ func (r *tableGrantResource) Read(ctx context.Context, req resource.ReadRequest,
 	resp.State.RemoveResource(ctx)
 }
 
-func (r *tableGrantResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {}
+func (r *tableGrantResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+}
 
 func (r *tableGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state tableGrantResourceModel

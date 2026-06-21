@@ -35,10 +35,10 @@ resource "polaris_principal_role_assignment" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_principal_role_assignment.test",
-				ImportState:                         true,
-				ImportStateId:                       "tf-acc-test-principal-assign/tf-acc-test-role-assign",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_principal_role_assignment.test",
+				ImportState:                          true,
+				ImportStateId:                        "tf-acc-test-principal-assign/tf-acc-test-role-assign",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "principal",
 			},
 		},

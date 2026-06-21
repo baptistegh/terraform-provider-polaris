@@ -44,29 +44,29 @@ func (r *viewGrantResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 		Description: "Grants a view-level privilege to a Polaris catalog role.",
 		Attributes: map[string]schema.Attribute{
 			"catalog": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"catalog_role": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog role receiving the grant. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog role receiving the grant. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"namespace": schema.ListAttribute{
-				Required:    true,
-				ElementType: types.StringType,
-				Description: "Namespace path as an ordered list of components. Changing this forces a new resource.",
+				Required:      true,
+				ElementType:   types.StringType,
+				Description:   "Namespace path as an ordered list of components. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.List{listRequiresReplace{}},
 			},
 			"view_name": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the view. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the view. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"privilege": schema.StringAttribute{
-				Required:    true,
-				Description: "The view-level privilege to grant (e.g. VIEW_READ_PROPERTIES, VIEW_FULL_METADATA). Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The view-level privilege to grant (e.g. VIEW_READ_PROPERTIES, VIEW_FULL_METADATA). Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
@@ -140,7 +140,8 @@ func (r *viewGrantResource) Read(ctx context.Context, req resource.ReadRequest, 
 	resp.State.RemoveResource(ctx)
 }
 
-func (r *viewGrantResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {}
+func (r *viewGrantResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+}
 
 func (r *viewGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state viewGrantResourceModel

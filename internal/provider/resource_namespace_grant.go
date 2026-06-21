@@ -43,13 +43,13 @@ func (r *namespaceGrantResource) Schema(_ context.Context, _ resource.SchemaRequ
 		Description: "Grants a namespace-level privilege to a Polaris catalog role.",
 		Attributes: map[string]schema.Attribute{
 			"catalog": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"catalog_role": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog role receiving the grant. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog role receiving the grant. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"namespace": schema.ListAttribute{
@@ -61,8 +61,8 @@ func (r *namespaceGrantResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 			},
 			"privilege": schema.StringAttribute{
-				Required:    true,
-				Description: "The namespace-level privilege to grant (e.g. NAMESPACE_CREATE, TABLE_READ_DATA). Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The namespace-level privilege to grant (e.g. NAMESPACE_CREATE, TABLE_READ_DATA). Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
@@ -130,7 +130,8 @@ func (r *namespaceGrantResource) Read(ctx context.Context, req resource.ReadRequ
 	resp.State.RemoveResource(ctx)
 }
 
-func (r *namespaceGrantResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {}
+func (r *namespaceGrantResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+}
 
 func (r *namespaceGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state namespaceGrantResourceModel

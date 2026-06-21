@@ -42,12 +42,12 @@ resource "polaris_principal" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_principal.test",
-				ImportState:                         true,
-				ImportStateId:                       "tf-acc-test-principal",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_principal.test",
+				ImportState:                          true,
+				ImportStateId:                        "tf-acc-test-principal",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "name",
-				ImportStateVerifyIgnore:             []string{"client_secret", "credential_rotation_required"},
+				ImportStateVerifyIgnore:              []string{"client_secret", "credential_rotation_required"},
 			},
 		},
 	})

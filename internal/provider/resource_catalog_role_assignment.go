@@ -95,7 +95,7 @@ func (r *catalogRoleAssignmentResource) Create(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Failed to assign catalog role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusCreated {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /principal-roles/{name}/catalog-roles/{catalog} returned HTTP %d.", httpResp.StatusCode))
@@ -117,7 +117,7 @@ func (r *catalogRoleAssignmentResource) Read(ctx context.Context, req resource.R
 		resp.Diagnostics.AddError("Failed to list catalog roles for principal role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode == http.StatusNotFound {
 		resp.State.RemoveResource(ctx)
@@ -160,7 +160,7 @@ func (r *catalogRoleAssignmentResource) Delete(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Failed to revoke catalog role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusNoContent {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /principal-roles/{name}/catalog-roles/{catalog}/{role} returned HTTP %d.", httpResp.StatusCode))

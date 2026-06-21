@@ -59,7 +59,7 @@ func listGrants(ctx context.Context, client *polarismanagement.Client, catalog, 
 	if err != nil {
 		return nil, err
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GET /grants returned HTTP %d", httpResp.StatusCode)
@@ -82,7 +82,7 @@ func addGrant(ctx context.Context, client *polarismanagement.Client, catalog, ca
 	if err != nil {
 		return err
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusCreated {
 		var errBody map[string]any
@@ -103,7 +103,7 @@ func revokeGrant(ctx context.Context, client *polarismanagement.Client, catalog,
 	if err != nil {
 		return err
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusCreated {
 		var errBody map[string]any

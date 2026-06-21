@@ -42,18 +42,18 @@ func (r *catalogGrantResource) Schema(_ context.Context, _ resource.SchemaReques
 		Description: "Grants a catalog-level privilege to a Polaris catalog role.",
 		Attributes: map[string]schema.Attribute{
 			"catalog": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"catalog_role": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog role receiving the grant. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog role receiving the grant. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"privilege": schema.StringAttribute{
-				Required:    true,
-				Description: "The catalog-level privilege to grant (e.g. CATALOG_MANAGE_CONTENT, CATALOG_READ_PROPERTIES). Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The catalog-level privilege to grant (e.g. CATALOG_MANAGE_CONTENT, CATALOG_READ_PROPERTIES). Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},

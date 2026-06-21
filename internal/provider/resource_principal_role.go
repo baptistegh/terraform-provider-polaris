@@ -109,7 +109,7 @@ func (r *principalRoleResource) Create(ctx context.Context, req resource.CreateR
 		resp.Diagnostics.AddError("Failed to create principal role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusCreated {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /principal-roles returned HTTP %d.", httpResp.StatusCode))
@@ -141,7 +141,7 @@ func (r *principalRoleResource) Read(ctx context.Context, req resource.ReadReque
 		resp.Diagnostics.AddError("Failed to get principal role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode == http.StatusNotFound {
 		resp.State.RemoveResource(ctx)
@@ -189,7 +189,7 @@ func (r *principalRoleResource) Update(ctx context.Context, req resource.UpdateR
 		resp.Diagnostics.AddError("Failed to update principal role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusOK {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("PUT /principal-roles returned HTTP %d.", httpResp.StatusCode))
@@ -221,7 +221,7 @@ func (r *principalRoleResource) Delete(ctx context.Context, req resource.DeleteR
 		resp.Diagnostics.AddError("Failed to delete principal role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusNoContent {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /principal-roles returned HTTP %d.", httpResp.StatusCode))

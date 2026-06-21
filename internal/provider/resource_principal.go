@@ -139,7 +139,7 @@ func (r *principalResource) Create(ctx context.Context, req resource.CreateReque
 		resp.Diagnostics.AddError("Failed to create principal", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusCreated {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /principals returned HTTP %d.", httpResp.StatusCode))
@@ -183,7 +183,7 @@ func (r *principalResource) Read(ctx context.Context, req resource.ReadRequest, 
 		resp.Diagnostics.AddError("Failed to get principal", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode == http.StatusNotFound {
 		resp.State.RemoveResource(ctx)
@@ -239,7 +239,7 @@ func (r *principalResource) Update(ctx context.Context, req resource.UpdateReque
 		resp.Diagnostics.AddError("Failed to update principal", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusOK {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("PUT /principals returned HTTP %d.", httpResp.StatusCode))
@@ -276,7 +276,7 @@ func (r *principalResource) Delete(ctx context.Context, req resource.DeleteReque
 		resp.Diagnostics.AddError("Failed to delete principal", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusNoContent {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /principals returned HTTP %d.", httpResp.StatusCode))

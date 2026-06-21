@@ -42,10 +42,10 @@ resource "polaris_table_grant" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_table_grant.test",
-				ImportState:                         true,
-				ImportStateId:                       catalog + "/tf-acc-test-crole-tgrant/TABLE_READ_DATA/sales/orders",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_table_grant.test",
+				ImportState:                          true,
+				ImportStateId:                        catalog + "/tf-acc-test-crole-tgrant/TABLE_READ_DATA/sales/orders",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "privilege",
 			},
 		},

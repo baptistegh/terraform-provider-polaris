@@ -102,7 +102,7 @@ func (d *principalDataSource) Read(ctx context.Context, req datasource.ReadReque
 		resp.Diagnostics.AddError("Failed to get principal", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode == http.StatusNotFound {
 		resp.Diagnostics.AddError("Principal not found", fmt.Sprintf("No principal with name %q exists.", name))

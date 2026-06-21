@@ -36,10 +36,10 @@ resource "polaris_catalog_grant" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_catalog_grant.test",
-				ImportState:                         true,
-				ImportStateId:                       catalog + "/tf-acc-test-crole-cgrant/CATALOG_READ_PROPERTIES",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_catalog_grant.test",
+				ImportState:                          true,
+				ImportStateId:                        catalog + "/tf-acc-test-crole-cgrant/CATALOG_READ_PROPERTIES",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "privilege",
 			},
 		},

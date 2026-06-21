@@ -39,10 +39,10 @@ resource "polaris_namespace_grant" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_namespace_grant.test",
-				ImportState:                         true,
-				ImportStateId:                       catalog + "/tf-acc-test-crole-nsgrant/NAMESPACE_LIST/sales",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_namespace_grant.test",
+				ImportState:                          true,
+				ImportStateId:                        catalog + "/tf-acc-test-crole-nsgrant/NAMESPACE_LIST/sales",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "privilege",
 			},
 		},

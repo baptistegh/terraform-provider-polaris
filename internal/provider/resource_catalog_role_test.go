@@ -44,10 +44,10 @@ resource "polaris_catalog_role" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_catalog_role.test",
-				ImportState:                         true,
-				ImportStateId:                       catalog + "/tf-acc-test-catalog-role",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_catalog_role.test",
+				ImportState:                          true,
+				ImportStateId:                        catalog + "/tf-acc-test-catalog-role",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "name",
 			},
 		},

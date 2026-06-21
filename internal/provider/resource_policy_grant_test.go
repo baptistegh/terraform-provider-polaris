@@ -45,10 +45,10 @@ resource "polaris_policy_grant" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_policy_grant.test",
-				ImportState:                         true,
-				ImportStateId:                       catalog + "/tf-acc-test-crole-pgrant/POLICY_READ/compliance/data_retention",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_policy_grant.test",
+				ImportState:                          true,
+				ImportStateId:                        catalog + "/tf-acc-test-crole-pgrant/POLICY_READ/compliance/data_retention",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "privilege",
 			},
 		},

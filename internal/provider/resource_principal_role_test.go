@@ -39,10 +39,10 @@ resource "polaris_principal_role" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_principal_role.test",
-				ImportState:                         true,
-				ImportStateId:                       "tf-acc-test-principal-role",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_principal_role.test",
+				ImportState:                          true,
+				ImportStateId:                        "tf-acc-test-principal-role",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "name",
 			},
 		},

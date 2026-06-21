@@ -42,10 +42,10 @@ resource "polaris_view_grant" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_view_grant.test",
-				ImportState:                         true,
-				ImportStateId:                       catalog + "/tf-acc-test-crole-vgrant/VIEW_READ_PROPERTIES/reporting/monthly_summary",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_view_grant.test",
+				ImportState:                          true,
+				ImportStateId:                        catalog + "/tf-acc-test-crole-vgrant/VIEW_READ_PROPERTIES/reporting/monthly_summary",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "privilege",
 			},
 		},

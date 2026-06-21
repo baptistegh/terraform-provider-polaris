@@ -44,29 +44,29 @@ func (r *policyGrantResource) Schema(_ context.Context, _ resource.SchemaRequest
 		Description: "Grants a policy-level privilege to a Polaris catalog role.",
 		Attributes: map[string]schema.Attribute{
 			"catalog": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"catalog_role": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the catalog role receiving the grant. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the catalog role receiving the grant. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"namespace": schema.ListAttribute{
-				Required:    true,
-				ElementType: types.StringType,
-				Description: "Namespace path as an ordered list of components. Changing this forces a new resource.",
+				Required:      true,
+				ElementType:   types.StringType,
+				Description:   "Namespace path as an ordered list of components. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.List{listRequiresReplace{}},
 			},
 			"policy_name": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the policy. Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The name of the policy. Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"privilege": schema.StringAttribute{
-				Required:    true,
-				Description: "The policy-level privilege to grant (e.g. POLICY_READ, POLICY_WRITE). Changing this forces a new resource.",
+				Required:      true,
+				Description:   "The policy-level privilege to grant (e.g. POLICY_READ, POLICY_WRITE). Changing this forces a new resource.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 		},
@@ -140,7 +140,8 @@ func (r *policyGrantResource) Read(ctx context.Context, req resource.ReadRequest
 	resp.State.RemoveResource(ctx)
 }
 
-func (r *policyGrantResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {}
+func (r *policyGrantResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+}
 
 func (r *policyGrantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state policyGrantResourceModel

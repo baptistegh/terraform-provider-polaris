@@ -40,10 +40,10 @@ resource "polaris_catalog_role_assignment" "test" {
 			},
 			// Import
 			{
-				ResourceName:                        "polaris_catalog_role_assignment.test",
-				ImportState:                         true,
-				ImportStateId:                       "tf-acc-test-role-cassign/" + catalog + "/tf-acc-test-crole-cassign",
-				ImportStateVerify:                   true,
+				ResourceName:                         "polaris_catalog_role_assignment.test",
+				ImportState:                          true,
+				ImportStateId:                        "tf-acc-test-role-cassign/" + catalog + "/tf-acc-test-crole-cassign",
+				ImportStateVerify:                    true,
 				ImportStateVerifyIdentifierAttribute: "principal_role",
 			},
 		},

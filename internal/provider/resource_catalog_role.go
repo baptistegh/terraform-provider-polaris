@@ -118,7 +118,7 @@ func (r *catalogRoleResource) Create(ctx context.Context, req resource.CreateReq
 		resp.Diagnostics.AddError("Failed to create catalog role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusCreated {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /catalog-roles returned HTTP %d.", httpResp.StatusCode))
@@ -150,7 +150,7 @@ func (r *catalogRoleResource) Read(ctx context.Context, req resource.ReadRequest
 		resp.Diagnostics.AddError("Failed to get catalog role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode == http.StatusNotFound {
 		resp.State.RemoveResource(ctx)
@@ -198,7 +198,7 @@ func (r *catalogRoleResource) Update(ctx context.Context, req resource.UpdateReq
 		resp.Diagnostics.AddError("Failed to update catalog role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusOK {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("PUT /catalog-roles returned HTTP %d.", httpResp.StatusCode))
@@ -230,7 +230,7 @@ func (r *catalogRoleResource) Delete(ctx context.Context, req resource.DeleteReq
 		resp.Diagnostics.AddError("Failed to delete catalog role", err.Error())
 		return
 	}
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusNoContent {
 		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /catalog-roles returned HTTP %d.", httpResp.StatusCode))

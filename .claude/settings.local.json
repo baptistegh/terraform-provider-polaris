@@ -12,7 +12,8 @@
       "Bash(go env *)",
       "Bash(make docs *)",
       "Bash(go vet *)",
-      "Bash(make testacc *)"
+      "Bash(make testacc *)",
+      "Bash(golangci-lint run *)"
     ]
   }
 }

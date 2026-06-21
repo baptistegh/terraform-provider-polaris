@@ -237,7 +237,7 @@ func fetchToken(ctx context.Context, httpClient *http.Client, baseURL, clientID,
 	if err != nil {
 		return "", err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	var tok tokenResponse
 	if err := json.NewDecoder(res.Body).Decode(&tok); err != nil {

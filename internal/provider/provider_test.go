@@ -102,7 +102,7 @@ func testCreateCatalog(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("testCreateCatalog: API call: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated {
 		var body map[string]any
@@ -116,7 +116,7 @@ func testCreateCatalog(t *testing.T) string {
 			t.Logf("testCreateCatalog cleanup: delete %q: %v", name, err)
 			return
 		}
-		delResp.Body.Close()
+		_ = delResp.Body.Close()
 		if delResp.StatusCode != http.StatusNoContent {
 			t.Logf("testCreateCatalog cleanup: delete %q returned HTTP %d", name, delResp.StatusCode)
 		}
@@ -160,7 +160,7 @@ func testCreateNamespace(t *testing.T, catalogName string, namespace []string) {
 	if err != nil {
 		t.Fatalf("testCreateNamespace: API call: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		var body map[string]any
@@ -181,7 +181,7 @@ func testCreateNamespace(t *testing.T, catalogName string, namespace []string) {
 			t.Logf("testCreateNamespace cleanup: delete %v: %v", namespace, err)
 			return
 		}
-		delResp.Body.Close()
+		_ = delResp.Body.Close()
 	})
 }
 
@@ -216,10 +216,10 @@ func testCreateTable(t *testing.T, catalogName string, namespace []string, table
 			"schema-id": 0,
 			"fields":    []map[string]any{{"id": 1, "name": "id", "required": false, "type": "long"}},
 		},
-		"partition-spec":  map[string]any{"spec-id": 0, "fields": []any{}},
-		"write-order":     map[string]any{"order-id": 0, "fields": []any{}},
-		"stage-create":    false,
-		"properties":      map[string]string{},
+		"partition-spec": map[string]any{"spec-id": 0, "fields": []any{}},
+		"write-order":    map[string]any{"order-id": 0, "fields": []any{}},
+		"stage-create":   false,
+		"properties":     map[string]string{},
 	})
 
 	createReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, createURL, bytes.NewReader(payload))
@@ -233,7 +233,7 @@ func testCreateTable(t *testing.T, catalogName string, namespace []string, table
 	if err != nil {
 		t.Fatalf("testCreateTable: API call: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		var body map[string]any
@@ -253,7 +253,7 @@ func testCreateTable(t *testing.T, catalogName string, namespace []string, table
 			t.Logf("testCreateTable cleanup: delete %s: %v", tableName, err)
 			return
 		}
-		delResp.Body.Close()
+		_ = delResp.Body.Close()
 	})
 }
 
@@ -309,7 +309,7 @@ func testCreateView(t *testing.T, catalogName string, namespace []string, viewNa
 	if err != nil {
 		t.Fatalf("testCreateView: API call: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		var body map[string]any
@@ -329,7 +329,7 @@ func testCreateView(t *testing.T, catalogName string, namespace []string, viewNa
 			t.Logf("testCreateView cleanup: delete %s: %v", viewName, err)
 			return
 		}
-		delResp.Body.Close()
+		_ = delResp.Body.Close()
 	})
 }
 
