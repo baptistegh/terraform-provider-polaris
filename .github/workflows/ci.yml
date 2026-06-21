@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go mod download
+      - run: go build -v .
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  generate:
+    name: Generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - run: make generate
+      - name: Check for uncommitted changes
+        run: |
+          git diff --compact-summary --exit-code || \
+            (echo; echo "Unexpected difference after code generation. Run 'make generate' and commit."; exit 1)
+
+  test:
+    name: Acceptance Tests (Terraform ${{ matrix.terraform }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform:
+          - '1.13.*'
+          - '1.14.*'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ matrix.terraform }}
+          terraform_wrapper: false
+      - name: Start Polaris
+        run: docker compose up -d --wait
+      - run: go mod download
+      - name: Run acceptance tests
+        env:
+          TF_ACC: "1"
+          POLARIS_BASE_URL: http://localhost:8181
+          POLARIS_CLIENT_ID: root
+          POLARIS_CLIENT_SECRET: s3cr3t
+          POLARIS_REALM: POLARIS
+        run: go test -v -cover ./internal/provider/ -timeout 25m
+        timeout-minutes: 25
+      - name: Stop Polaris
+        if: always()
+        run: docker compose down

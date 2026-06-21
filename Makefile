@@ -68,6 +68,10 @@ fmt:
 tidy:
 	go mod tidy
 
+.PHONY: changelog
+changelog:
+	git-cliff -o CHANGELOG.md
+
 .PHONY: clean
 clean:
 	rm -f $(BINARY)
