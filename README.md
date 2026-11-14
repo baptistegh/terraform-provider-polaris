@@ -127,9 +127,8 @@ resource "polaris_table_grant" "orders" {
 
 ### Prerequisites
 
-- Go >= 1.22
-- Docker (for running Polaris locally)
-- [`golangci-lint`](https://golangci-lint.run/usage/install/) (for linting)
+- Go >= 1.26
+- Docker (for running Polaris locally and for `make lint`, which runs [`golangci-lint`](https://golangci-lint.run/) in a container)
 
 ### Start a local Polaris instance
 

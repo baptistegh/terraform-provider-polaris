@@ -21,8 +21,8 @@ go test -run TestResourceCatalog ./internal/provider/
 # Run acceptance tests (requires a running Polaris instance)
 TF_ACC=1 POLARIS_HOST=http://localhost:8181 go test ./internal/provider/ -v -timeout 120m
 
-# Lint
-golangci-lint run
+# Lint (runs golangci-lint in Docker, version pinned in Makefile)
+make lint
 
 # Re-generate the management API client (after updating spec/)
 go generate ./pkg/polarismanagement/

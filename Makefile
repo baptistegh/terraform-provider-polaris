@@ -8,6 +8,9 @@ POLARIS_CLIENT_ID     ?= root
 POLARIS_CLIENT_SECRET ?= s3cr3t
 POLARIS_REALM         ?= POLARIS
 
+# renovate: datasource=docker depName=golangci/golangci-lint
+GOLANGCI_LINT_VERSION ?= v2.15.0
+
 default: build
 
 .PHONY: build
@@ -58,7 +61,10 @@ docs:
 
 .PHONY: lint
 lint:
-	golangci-lint run
+	docker run --rm -t \
+		-v $(CURDIR):/app -w /app \
+		-v $(HOME)/.cache/golangci-lint:/root/.cache \
+		golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run
 
 .PHONY: fmt
 fmt:
