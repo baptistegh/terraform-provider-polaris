@@ -28,7 +28,8 @@ Copy the structure of the closest existing file:
 - Simple named entity with properties: `resource_principal_role.go` (CRUD, `entity_version`, import by name).
 - Entity scoped by catalog: `resource_catalog_role.go` (composite import ID).
 - Data source: `datasource_principal.go`.
-- Grant: `resource_catalog_grant.go` + `grants.go` (see "Grants" below).
+- Grant: `resource_catalog_grant.go` + `grants.go` (see "Polymorphic payloads" below).
+- Polymorphic entity with nested objects: `resource_catalog.go` + `catalog.go`.
 
 Rules:
 
@@ -42,9 +43,9 @@ Rules:
 - Put API-to-state conversion in one `<type>FromAPI(...)` helper shared by Create/Read/Update. For optional+computed maps (`properties`), keep the null-vs-empty handling from `principalRoleFromAPI` so a config without `properties` doesn't produce a diff.
 - Every attribute has a `Description` (it ends up in the docs).
 
-### Grants
+### Polymorphic payloads (grants, catalogs)
 
-The generated `GrantResource` model only carries `type`, so grant endpoints do **not** use the generated client: they go through `doJSON` with hand-written payloads via the helpers in `internal/provider/grants.go`. Reuse those helpers; add a new payload/helper there only if the grant type genuinely differs.
+The generator flattens `allOf` + discriminator subtypes and silently drops their fields. Check the generated model against the spec before using it: if subtype fields are missing, call the endpoint through `doJSON` with hand-written payloads instead, as grants (`grants.go`, `GrantResource` only carries `type`) and catalogs (`catalog.go`, storage and connection configs) do. Reuse those helpers; detect a 404 with `isNotFoundError(err)`, and cover the payload decoding with an `httptest` unit test.
 
 ## 4. Register it
 

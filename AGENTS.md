@@ -63,8 +63,10 @@ pkg/
 internal/
   provider/
     provider.go                # provider.Provider implementation, ProviderData, token fetching; registers resources/data sources
-    apiclient.go               # newManagementClient, checkResponse, isNotFound, doJSON
+    apiclient.go               # newManagementClient, checkResponse, isNotFound, doJSON, isNotFoundError
     grants.go                  # shared grant helpers (list/add/revoke via doJSON)
+    catalog.go                 # catalog payloads and API calls via doJSON, model conversions (shared by resource and data source)
+    resource_catalog.go        # polaris_catalog
     resource_principal.go      # polaris_principal
     resource_principal_role.go # polaris_principal_role
     resource_catalog_role.go   # polaris_catalog_role
@@ -75,6 +77,7 @@ internal/
     resource_table_grant.go
     resource_view_grant.go
     resource_policy_grant.go
+    resource_semantic_model_grant.go
     datasource_realm.go        # polaris_realm (no API call, reads provider config)
     datasource_principal.go    # polaris_principal
     provider_test.go           # providerFactories, testAccPreCheck, testAccProviderConfig, testCreate* helpers
@@ -97,7 +100,7 @@ if isNotFound(httpResp) { /* gone */ }
 if err := checkResponse(httpResp, err, http.StatusOK); err != nil { /* report */ }
 ```
 
-Grants are the exception: the generated `GrantResource` model only carries `type` (the generator flattens the `allOf` + discriminator subtypes), so the grant endpoints go through `doJSON` with hand-written payloads (`internal/provider/grants.go`).
+Grants and catalogs are the exceptions: the generator flattens `allOf` + discriminator subtypes, so the generated `GrantResource` only carries `type`, `StorageConfigInfo` drops every S3/Azure/GCS field and `Catalog` has no `connectionConfigInfo`. Those endpoints go through `doJSON` with hand-written payloads (`internal/provider/grants.go`, `internal/provider/catalog.go`); use `isNotFoundError(err)` to detect a 404 from `doJSON`.
 
 Authentication uses OAuth2 client credentials against `/api/catalog/v1/oauth/tokens`, which the management spec does not cover; `fetchToken` in `provider.go` implements it (scope `PRINCIPAL_ROLE:ALL`). A pre-fetched `token` can be configured instead.
 
@@ -131,7 +134,8 @@ Where `<type>` is the Terraform type name without the `polaris_` prefix, with sl
 - `provider.Configure()` passes `*ProviderData` (defined in `provider.go`) as both `resp.ResourceData` and `resp.DataSourceData`. Every resource and data source must type-assert to `*ProviderData` in their own `Configure` method.
 - Acceptance tests use `resource.Test` with `providerFactories` and helpers from `provider_test.go`. Test environment variables: `TF_ACC=1`, `POLARIS_BASE_URL`, `POLARIS_CLIENT_ID`, `POLARIS_CLIENT_SECRET`, `POLARIS_REALM`.
 - Tests that need a catalog call `testCreateCatalog(t)` — it creates a random catalog via the API and registers `t.Cleanup` to delete it. No `POLARIS_TEST_CATALOG` env var is needed.
-- Tests that need a namespace, table, or view call `testCreateNamespace`, `testCreateTable`, or `testCreateView` — same pattern.
+- Tests that need a namespace, table, view or semantic model call `testCreateNamespace`, `testCreateTable`, `testCreateView` or `testCreateSemanticModel` — same pattern.
+- `docker-compose.yml` (used locally and in CI) enables the `ENABLE_CATALOG_FEDERATION` and `ENABLE_SEMANTIC_MODELS` server features that the federated catalog and semantic model grant tests need.
 
 ### Testing — MANDATORY
 

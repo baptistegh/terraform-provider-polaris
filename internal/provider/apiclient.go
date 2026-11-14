@@ -107,7 +107,10 @@ func doJSON(ctx context.Context, client *polarismanagement.APIClient, method, pa
 		return fmt.Errorf("read response: %w", err)
 	}
 	if res.StatusCode != want {
-		return fmt.Errorf("%s %s returned HTTP %d (expected %d): %s", method, req.URL.Path, res.StatusCode, want, strings.TrimSpace(string(respBody)))
+		return &unexpectedStatusError{
+			StatusCode: res.StatusCode,
+			msg:        fmt.Sprintf("%s %s returned HTTP %d (expected %d): %s", method, req.URL.Path, res.StatusCode, want, strings.TrimSpace(string(respBody))),
+		}
 	}
 	if out != nil {
 		if err := json.Unmarshal(respBody, out); err != nil {
@@ -115,4 +118,19 @@ func doJSON(ctx context.Context, client *polarismanagement.APIClient, method, pa
 		}
 	}
 	return nil
+}
+
+// unexpectedStatusError is returned by doJSON when the server answers with a status
+// other than the expected one, so callers can tell a 404 apart from other failures.
+type unexpectedStatusError struct {
+	StatusCode int
+	msg        string
+}
+
+func (e *unexpectedStatusError) Error() string { return e.msg }
+
+// isNotFoundError reports whether err is a doJSON error for an HTTP 404 response.
+func isNotFoundError(err error) bool {
+	var se *unexpectedStatusError
+	return errors.As(err, &se) && se.StatusCode == http.StatusNotFound
 }

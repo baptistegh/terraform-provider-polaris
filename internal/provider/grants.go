@@ -45,6 +45,8 @@ type grantPayload struct {
 	TableName  string   `json:"tableName,omitempty"`
 	ViewName   string   `json:"viewName,omitempty"`
 	PolicyName string   `json:"policyName,omitempty"`
+	// SemanticModelName is set for semantic-model grants.
+	SemanticModelName string `json:"semanticModelName,omitempty"`
 }
 
 type grantsListResponse struct {

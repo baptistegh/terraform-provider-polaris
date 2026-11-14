@@ -310,5 +310,64 @@ func testCreateView(t *testing.T, catalogName string, namespace []string, viewNa
 	})
 }
 
+// testCreateSemanticModel creates an empty semantic model in the given catalog+namespace
+// through the Polaris semantic model API (requires ENABLE_SEMANTIC_MODELS on the server).
+// Polaris requires the semantic model to exist before a semantic-model grant can be applied.
+// Registers t.Cleanup to drop it.
+func testCreateSemanticModel(t *testing.T, catalogName string, namespace []string, modelName string) {
+	t.Helper()
+
+	baseURL := strings.TrimRight(os.Getenv("POLARIS_BASE_URL"), "/")
+	clientID := os.Getenv("POLARIS_CLIENT_ID")
+	clientSecret := os.Getenv("POLARIS_CLIENT_SECRET")
+	realm := os.Getenv("POLARIS_REALM")
+
+	ctx := context.Background()
+	httpClient := &http.Client{}
+
+	token, err := fetchToken(ctx, httpClient, baseURL, clientID, clientSecret, realm, defaultRealmHeader)
+	if err != nil {
+		t.Fatalf("testCreateSemanticModel: fetch token: %v", err)
+	}
+
+	do := func(ctx context.Context, method, url string, body []byte) (int, string, error) {
+		req, _ := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		if realm != "" {
+			req.Header.Set(defaultRealmHeader, realm)
+		}
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return 0, "", err
+		}
+		defer func() { _ = resp.Body.Close() }()
+		var b bytes.Buffer
+		_, _ = b.ReadFrom(resp.Body)
+		return resp.StatusCode, b.String(), nil
+	}
+
+	collectionURL := fmt.Sprintf("%s/api/catalog/polaris/v1/%s/namespaces/%s/semantic-models", baseURL, catalogName, strings.Join(namespace, "\x1f"))
+	// An Apache Ossie document with no datasets is the smallest valid semantic model.
+	payload, _ := json.Marshal(map[string]any{
+		"name":     modelName,
+		"document": map[string]string{"version": "0.2.0.dev0", "semantic_model": `{"datasets":[]}`},
+	})
+
+	status, body, err := do(ctx, http.MethodPost, collectionURL, payload)
+	if err != nil {
+		t.Fatalf("testCreateSemanticModel: API call: %v", err)
+	}
+	if status != http.StatusOK && status != http.StatusCreated {
+		t.Fatalf("testCreateSemanticModel: expected 200/201, got %d: %s (is ENABLE_SEMANTIC_MODELS on?)", status, body)
+	}
+
+	t.Cleanup(func() {
+		if _, _, err := do(context.Background(), http.MethodDelete, collectionURL+"/"+modelName, nil); err != nil {
+			t.Logf("testCreateSemanticModel cleanup: delete %s: %v", modelName, err)
+		}
+	})
+}
+
 // Ensure the resource package is test-compatible.
 var _ = resource.Test
