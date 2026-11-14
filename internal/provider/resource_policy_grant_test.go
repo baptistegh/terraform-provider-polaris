@@ -11,11 +11,9 @@ func TestAccResourcePolicyGrant_basic(t *testing.T) {
 	testAccPreCheck(t)
 
 	// Polaris requires the policy to exist before a grant can be applied to it.
-	// Policies are created via a separate Polaris governance API not covered by this provider.
-	// This test is skipped until a testCreatePolicy helper is available.
-	t.Skip("polaris_policy_grant requires a pre-existing policy; skipped until testCreatePolicy helper is implemented")
-
 	catalog := testCreateCatalog(t)
+	testCreateNamespace(t, catalog, []string{"compliance"})
+	testCreatePolicy(t, catalog, []string{"compliance"}, "data_retention")
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: providerFactories,

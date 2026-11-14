@@ -140,8 +140,7 @@ func dropNamespace(ctx context.Context, client *polarismanagement.APIClient, cat
 // empty), following next-page-token until the last page.
 func listNamespaces(ctx context.Context, client *polarismanagement.APIClient, catalog string, parent []string) ([][]string, error) {
 	var all [][]string
-	token := ""
-	for {
+	err := paginate(func(token string) (*string, error) {
 		q := url.Values{}
 		if len(parent) > 0 {
 			q.Set("parent", strings.Join(parent, "\x1f"))
@@ -149,20 +148,14 @@ func listNamespaces(ctx context.Context, client *polarismanagement.APIClient, ca
 		if token != "" {
 			q.Set("pageToken", token)
 		}
-		path := icebergCatalogPath(catalog, "namespaces")
-		if len(q) > 0 {
-			path += "?" + q.Encode()
-		}
 		var page listNamespacesPayload
-		if err := doCatalogJSON(ctx, client, http.MethodGet, path, nil, http.StatusOK, &page); err != nil {
+		if err := doCatalogJSON(ctx, client, http.MethodGet, withQuery(icebergCatalogPath(catalog, "namespaces"), q), nil, http.StatusOK, &page); err != nil {
 			return nil, err
 		}
 		all = append(all, page.Namespaces...)
-		if page.NextPageToken == nil || *page.NextPageToken == "" {
-			return all, nil
-		}
-		token = *page.NextPageToken
-	}
+		return page.NextPageToken, nil
+	})
+	return all, err
 }
 
 // sameLocation reports whether two locations are equal, ignoring the trailing slash
