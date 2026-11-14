@@ -188,6 +188,13 @@ func (p *PolarisProvider) DataSources(_ context.Context) []func() datasource.Dat
 	return []func() datasource.DataSource{
 		newRealmDataSource,
 		newPrincipalDataSource,
+		newPrincipalsDataSource,
+		newPrincipalRoleDataSource,
+		newPrincipalRolesDataSource,
+		newCatalogDataSource,
+		newCatalogsDataSource,
+		newCatalogRoleDataSource,
+		newCatalogRolesDataSource,
 	}
 }
 
