@@ -143,3 +143,26 @@ Where `<type>` is the Terraform type name without the `polaris_` prefix, with sl
 - Use `testAccProviderConfig()` for the provider block — never hardcode credentials.
 - Test functions are named `TestAcc<Kind><Type>_<scenario>`, e.g. `TestAccDatasourcePrincipal_defaultsToProviderClientID`.
 - Logic that does not need a Polaris server (helpers in `apiclient.go`, `grants.go`, provider config validation, ...) should get plain unit tests (`Test<Name>`, no `checkTFAcc`), using `httptest` for HTTP behaviour. They run in CI via `make test`.
+
+### Commits and AI attribution — MANDATORY
+
+An AI agent is **NEVER** a co-author. Never add a `Co-Authored-By:` trailer (or any other authorship credit) for an AI agent: the human who commits is the author and is responsible for the change.
+
+Instead, every commit an AI agent contributed to **must** end with exactly one of these Git trailers, depending on what the agent did:
+
+| Trailer | Use when |
+|---|---|
+| `Generated-By:` | The agent wrote the change (code, tests, docs, config), even if a human then reviewed or adjusted it. |
+| `Assisted-By:` | A human wrote the change and the agent only helped: suggestions, review, debugging, research, explanations. |
+
+Format: `<Trailer>: <agent> (<model>)`, as the last paragraph of the commit message, for example:
+
+```
+docs: simplify README
+
+Drop the resource tables, which duplicate the Registry docs.
+
+Generated-By: Claude Code (claude-opus-5-5)
+```
+
+The same rule applies to pull request descriptions: no co-author credit for an agent; say whether it generated or assisted.
