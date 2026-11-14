@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1](https://github.com/baptistegh/terraform-provider-polaris/compare/v0.2.0...v0.2.1) (2026-11-14)
+
+
+### Documentation
+
+* improve README ([#33](https://github.com/baptistegh/terraform-provider-polaris/issues/33)) ([f05d781](https://github.com/baptistegh/terraform-provider-polaris/commit/f05d781377e90dc1c05505d20a298f2f3ac3073f))
+
 ## [0.2.0](https://github.com/baptistegh/terraform-provider-polaris/compare/v0.1.1...v0.2.0) (2026-11-14)
 
 
