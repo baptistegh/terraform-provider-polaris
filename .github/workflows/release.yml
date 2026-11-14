@@ -1,30 +1,66 @@
-name: release
+name: Release
+
+# release-please keeps a "chore(main): release x.y.z" PR up to date from the
+# conventional commits on main. Merging that PR creates the tag and a *draft*
+# GitHub release with the changelog; GoReleaser then builds, signs and uploads
+# the artifacts to that draft, and only then is it published. The Terraform
+# Registry ingests a version when its release is published, so publishing
+# last guarantees the artifacts are there.
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
+  pull-requests: write
+  issues: write # release-please manages its PR labels
 
 jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      # A PAT (or GitHub App token) is required: PRs opened with the default
+      # GITHUB_TOKEN do not trigger CI, so the required checks would never run
+      # on the release PR.
+      - name: Check release token
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_PLEASE_TOKEN" ]; then
+            echo "::error::Missing RELEASE_PLEASE_TOKEN secret (fine-grained PAT with contents, pull requests and issues read/write on this repository)."
+            exit 1
+          fi
+
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
   goreleaser:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
           fetch-depth: 0
 
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
-
-      - name: Install git-cliff
-        uses: taiki-e/install-action@v2
-        with:
-          tool: git-cliff
 
       - name: Import GPG key
         id: import_gpg
@@ -36,7 +72,13 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
-          args: release --clean --release-notes=CHANGELOG.md
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
