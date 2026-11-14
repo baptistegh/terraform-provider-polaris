@@ -19,6 +19,8 @@ Check whether `examples/resources/polaris_<type>/resource.tf` or `examples/data-
 
 Look up the operations in `spec/polaris-management-service.yml` and the generated methods in `pkg/polarismanagement/api_default.go` (`client.DefaultAPI.<Op>(ctx, ...).<Body>(...).Execute()`). Never edit `pkg/polarismanagement/*.go` or `spec/` by hand.
 
+Catalog API objects (namespaces, policies, semantic models) are in `spec/bundled-polaris-catalog-service.yaml` and have no generated client: call them with `doCatalogJSON` and paths from `icebergCatalogPath` / `polarisCatalogPath` / `namespacePath` (AGENTS.md, "Catalog API"), with hand-written payload structs.
+
 Note the success status of each operation from the spec (create is usually `201`, get/update `200`, delete `204`), and which fields are required vs pointers in the generated model.
 
 ## 3. Write the implementation
