@@ -193,6 +193,20 @@ func testCreateSemanticModel(t *testing.T, catalogName string, namespace []strin
 		polarisCatalogPath(catalogName, "namespaces", ns, "semantic-models", url.PathEscape(modelName)))
 }
 
+// testPolicyContent is a valid system.data-compaction policy definition.
+const testPolicyContent = `{"version":"2025-02-03","enable":true}`
+
+// testCreatePolicy creates a system.data-compaction policy in the given catalog+namespace
+// through the Polaris policy API. Polaris requires the policy to exist before a policy
+// grant can be applied to it. Registers t.Cleanup to drop it.
+func testCreatePolicy(t *testing.T, catalogName string, namespace []string, policyName string) {
+	t.Helper()
+	testCreateCatalogObject(t, "policy "+policyName,
+		polarisCatalogPath(catalogName, "namespaces", namespacePath(namespace), "policies"),
+		createPolicyPayload{Name: policyName, Type: "system.data-compaction", Content: testPolicyContent},
+		policyPath(catalogName, namespace, policyName))
+}
+
 // testCreatePrincipal creates a principal with a random name through the API, registers
 // t.Cleanup to delete it, and returns its name, client ID and client secret.
 func testCreatePrincipal(t *testing.T) (name, clientID, clientSecret string) {
