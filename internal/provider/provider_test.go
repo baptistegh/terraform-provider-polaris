@@ -369,5 +369,38 @@ func testCreateSemanticModel(t *testing.T, catalogName string, namespace []strin
 	})
 }
 
+// testCreatePrincipal creates a principal with a random name through the API, registers
+// t.Cleanup to delete it, and returns its name, client ID and client secret.
+func testCreatePrincipal(t *testing.T) (name, clientID, clientSecret string) {
+	t.Helper()
+
+	ctx := context.Background()
+	httpClient := &http.Client{}
+	baseURL, realm := os.Getenv("POLARIS_BASE_URL"), os.Getenv("POLARIS_REALM")
+
+	token, err := fetchToken(ctx, httpClient, baseURL, os.Getenv("POLARIS_CLIENT_ID"), os.Getenv("POLARIS_CLIENT_SECRET"), realm, defaultRealmHeader)
+	if err != nil {
+		t.Fatalf("testCreatePrincipal: fetch token: %v", err)
+	}
+	client := newManagementClient(baseURL, httpClient, token, realm, defaultRealmHeader)
+
+	name = acctest.RandomWithPrefix("tf-acc")
+	created, httpResp, err := client.DefaultAPI.CreatePrincipal(ctx).
+		CreatePrincipalRequest(polarismanagement.CreatePrincipalRequest{Principal: &polarismanagement.Principal{Name: name}}).
+		Execute()
+	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {
+		t.Fatalf("testCreatePrincipal: %v", err)
+	}
+
+	t.Cleanup(func() {
+		httpResp, err := client.DefaultAPI.DeletePrincipal(context.Background(), name).Execute()
+		if err := checkResponse(httpResp, err, http.StatusNoContent); err != nil {
+			t.Logf("testCreatePrincipal cleanup: delete %q: %v", name, err)
+		}
+	})
+
+	return name, created.Credentials.GetClientId(), created.Credentials.GetClientSecret()
+}
+
 // Ensure the resource package is test-compatible.
 var _ = resource.Test

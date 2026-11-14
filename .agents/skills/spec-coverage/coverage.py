@@ -37,8 +37,10 @@ OPERATIONS = {
     "getPrincipal": [(R, "polaris_principal"), (DS, "polaris_principal")],
     "updatePrincipal": [(R, "polaris_principal")],
     "deletePrincipal": [(R, "polaris_principal")],
-    "rotateCredentials": [(EPH, "polaris_principal_credentials")],
-    "resetCredentials": [(EPH, "polaris_principal_credentials")],
+    # A managed resource, not an ephemeral one: both calls invalidate the previous
+    # secret, and an ephemeral resource would issue new credentials on every plan.
+    "rotateCredentials": [(R, "polaris_principal_credentials")],
+    "resetCredentials": [(R, "polaris_principal_credentials")],
     # Principal role assignments (principal <-> principal role)
     "listPrincipalRolesAssigned": [(R, "polaris_principal_role_assignment")],
     "assignPrincipalRole": [(R, "polaris_principal_role_assignment")],

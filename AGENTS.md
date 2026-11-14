@@ -68,6 +68,7 @@ internal/
     catalog.go                 # catalog payloads and API calls via doJSON, model conversions (shared by resource and data source)
     resource_catalog.go        # polaris_catalog
     resource_principal.go      # polaris_principal
+    resource_principal_credentials.go # polaris_principal_credentials (reset/rotate; managed, not ephemeral)
     resource_principal_role.go # polaris_principal_role
     resource_catalog_role.go   # polaris_catalog_role
     resource_principal_role_assignment.go
@@ -136,6 +137,7 @@ Where `<type>` is the Terraform type name without the `polaris_` prefix, with sl
 - State models are separate structs with `tfsdk` tags.
 - `provider.Configure()` passes `*ProviderData` (defined in `provider.go`) as both `resp.ResourceData` and `resp.DataSourceData`. Every resource and data source must type-assert to `*ProviderData` in their own `Configure` method.
 - Acceptance tests use `resource.Test` with `providerFactories` and helpers from `provider_test.go`. Test environment variables: `TF_ACC=1`, `POLARIS_BASE_URL`, `POLARIS_CLIENT_ID`, `POLARIS_CLIENT_SECRET`, `POLARIS_REALM`.
+- Tests that need a principal created outside Terraform (e.g. to authenticate as it) call `testCreatePrincipal(t)`, which returns its name, client ID and secret.
 - Tests that need a catalog call `testCreateCatalog(t)` — it creates a random catalog via the API and registers `t.Cleanup` to delete it. No `POLARIS_TEST_CATALOG` env var is needed.
 - Tests that need a namespace, table, view or semantic model call `testCreateNamespace`, `testCreateTable`, `testCreateView` or `testCreateSemanticModel` — same pattern.
 - `docker-compose.yml` (used locally and in CI) enables the `ENABLE_CATALOG_FEDERATION` and `ENABLE_SEMANTIC_MODELS` server features that the federated catalog and semantic model grant tests need.
