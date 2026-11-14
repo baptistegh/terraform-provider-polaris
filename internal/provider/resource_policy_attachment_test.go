@@ -79,16 +79,14 @@ resource "polaris_policy_attachment" "sales" {
 				ImportState:                          true,
 				ImportStateId:                        catalog + "/governance/compaction/catalog",
 				ImportStateVerify:                    true,
-				// Both attachments share the policy: target_type tells them apart.
-				ImportStateVerifyIdentifierAttribute: "target_type",
+				ImportStateVerifyIdentifierAttribute: "target_type", // both attachments share the policy
 			},
 			{
 				ResourceName:                         "polaris_policy_attachment.sales",
 				ImportState:                          true,
 				ImportStateId:                        catalog + "/governance/compaction/namespace/sales",
 				ImportStateVerify:                    true,
-				// Both attachments share the policy: target_type tells them apart.
-				ImportStateVerifyIdentifierAttribute: "target_type",
+				ImportStateVerifyIdentifierAttribute: "target_type",          // both attachments share the policy
 				ImportStateVerifyIgnore:              []string{"parameters"}, // never returned by the API
 			},
 			// Removing the namespace attachment detaches it; the catalog one stays.

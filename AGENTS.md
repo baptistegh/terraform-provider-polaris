@@ -73,10 +73,12 @@ internal/
     catalog.go                 # catalog payloads and API calls via doJSON, model conversions (shared by resource and data source)
     namespace.go               # namespace payloads and property helpers (catalog API); `location` is server-managed and never removed
     policy.go                  # policy and attachment payloads and API calls (catalog API), paginate / withQuery helpers
+    semantic_model.go          # semantic model payloads and API calls (catalog API)
     resource_catalog.go        # polaris_catalog
     resource_namespace.go      # polaris_namespace (and datasource_namespace(s).go)
     resource_policy.go         # polaris_policy (and datasource_polic(y|ies).go)
     resource_policy_attachment.go # polaris_policy_attachment (read back through getApplicablePolicies)
+    resource_semantic_model.go # polaris_semantic_model (and datasource_semantic_model(s).go)
     resource_principal.go      # polaris_principal
     resource_principal_credentials.go # polaris_principal_credentials (reset/rotate; managed, not ephemeral)
     resource_principal_role.go # polaris_principal_role
