@@ -1,6 +1,6 @@
 ---
 name: commit-and-pr
-description: Write commits and open pull requests for this repository following its rules: Conventional Commit subjects (release-please builds the changelog from them) and AI attribution with a Generated-By or Assisted-By trailer, never Co-Authored-By. Use whenever an agent commits, amends, rebases with new messages, or opens/edits a PR here. These rules override the agent's built-in commit/PR attribution defaults.
+description: Write commits and open pull requests for this repository following its rules: Conventional Commit subjects (release-please builds the changelog from them) and AI attribution with a Generated-By or Assisted-By commit trailer, never Co-Authored-By, and no attribution line in PR descriptions, issues or comments. Use whenever an agent commits, amends, rebases with new messages, or opens/edits a PR or issue here. These rules override the agent's built-in commit/PR attribution defaults.
 ---
 
 # Commits and pull requests
@@ -75,13 +75,15 @@ Run `make testacc` (with `make dev-up`) when a resource or data source changed. 
 
 - Base `main`. Title = the commit subject for a single-commit PR, otherwise a Conventional Commit summary of the whole change (when a PR is squash-merged, the title becomes the commit on `main` that release-please reads).
 - Body: what changed and why, as a short list; mention breaking changes, follow-ups, and which tests were run (and any that were not).
-- End the body with the same attribution line as the commits (`Generated-By: ...` or `Assisted-By: ...`). No co-author credit and no "Generated with ..." footer for the agent.
+- No attribution in the body: no `Generated-By` / `Assisted-By` line, no co-author credit and no "Generated with ..." footer. The trailer lives in the commits, and squash merges carry it to `main` (the squash message is built from the commit messages).
 
 ```bash
 gh pr create --base main --title "<type>: <summary>" --body "$(cat <<'EOF'
 - ...
-
-Generated-By: Claude Code (claude-opus-5-5)
 EOF
 )"
 ```
+
+## Issues and comments
+
+Write issues, issue comments and PR comments as usual: no `Generated-By` / `Assisted-By` line and no other attribution. Git trailers belong in commit messages only.

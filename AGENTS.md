@@ -174,4 +174,4 @@ Drop the resource tables, which duplicate the Registry docs.
 Generated-By: Claude Code (claude-opus-5-5)
 ```
 
-The same rule applies to pull request descriptions: no co-author credit for an agent; say whether it generated or assisted.
+The trailer belongs in commit messages only. Do not add it (or any other attribution line) to pull request descriptions, issues or comments: write those as usual. Squash merges build the commit message from the branch's commit messages, so the trailer still reaches `main`.
