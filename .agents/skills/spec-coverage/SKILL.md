@@ -22,7 +22,7 @@ Standard library only, nothing to install.
 2. **Expected types:** the `OPERATIONS` table in `coverage.py` maps each operationId to the Terraform types that should cover it:
    - CRUD on an entity → a resource `polaris_<entity>`; its `get*` → also a data source `polaris_<entity>`; its `list*` → a plural data source `polaris_<entities>`.
    - `assign*` / `revoke*` / `list*Assigned` → the `*_assignment` resource.
-   - `rotateCredentials` / `resetCredentials` → the ephemeral `polaris_principal_credentials`.
+   - `rotateCredentials` / `resetCredentials` → the `polaris_principal_credentials` resource (managed, not ephemeral: both calls invalidate the previous secret, so an ephemeral resource would issue new credentials on every plan).
    - Each grant discriminator value `<t>` → a resource `polaris_<t>_grant` (hyphens become underscores).
    - `[]` means intentionally not exposed (reverse lookups), with the reason in a comment.
 3. **Provider side:** it reads the constructors in `Resources()`, `DataSources()` and `EphemeralResources()` in `internal/provider/provider.go`, then takes the type name from each constructor's `Metadata` (`req.ProviderTypeName + "_<type>"`). Only *registered* types count: a file that exists but isn't registered is reported as missing.

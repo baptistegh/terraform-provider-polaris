@@ -170,6 +170,7 @@ func (p *PolarisProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *PolarisProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		newPrincipalResource,
+		newPrincipalCredentialsResource,
 		newPrincipalRoleResource,
 		newCatalogRoleResource,
 		newPrincipalRoleAssignmentResource,
