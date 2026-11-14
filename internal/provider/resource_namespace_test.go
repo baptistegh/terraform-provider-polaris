@@ -118,8 +118,7 @@ resource "polaris_namespace" "eu" {
 				ImportState:                          true,
 				ImportStateId:                        catalog + "/sales/eu",
 				ImportStateVerify:                    true,
-				// Both namespaces share the catalog: location tells them apart.
-				ImportStateVerifyIdentifierAttribute: "location",
+				ImportStateVerifyIdentifierAttribute: "location", // both namespaces share the catalog
 			},
 		},
 	})

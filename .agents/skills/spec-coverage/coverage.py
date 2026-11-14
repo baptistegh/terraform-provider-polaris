@@ -121,7 +121,7 @@ OPERATIONS = {
     "detachPolicy": [(R, "polaris_policy_attachment")],
     "getApplicablePolicies": [],  # effective policies after inheritance: a computed view, not an object
     # Semantic models (Polaris-native, needs ENABLE_SEMANTIC_MODELS): administrator-defined
-    # documents like policies, so expected as types (#27).
+    # documents like policies, so expected as types.
     "createSemanticModel": [(R, "polaris_semantic_model")],
     "listSemanticModels": [(DS, "polaris_semantic_models")],
     "loadSemanticModel": [(R, "polaris_semantic_model"), (DS, "polaris_semantic_model")],

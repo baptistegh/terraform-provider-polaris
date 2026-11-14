@@ -182,15 +182,11 @@ func testCreateView(t *testing.T, catalogName string, namespace []string, viewNa
 // Registers t.Cleanup to drop it.
 func testCreateSemanticModel(t *testing.T, catalogName string, namespace []string, modelName string) {
 	t.Helper()
-	ns := namespacePath(namespace)
 	// An Apache Ossie document with no datasets is the smallest valid semantic model.
 	testCreateCatalogObject(t, "semantic model "+modelName,
-		polarisCatalogPath(catalogName, "namespaces", ns, "semantic-models"),
-		map[string]any{
-			"name":     modelName,
-			"document": map[string]string{"version": "0.2.0.dev0", "semantic_model": `{"datasets":[]}`},
-		},
-		polarisCatalogPath(catalogName, "namespaces", ns, "semantic-models", url.PathEscape(modelName)))
+		semanticModelsPath(catalogName, namespace),
+		createSemanticModelPayload{Name: modelName, Document: semanticModelDocument{Version: "0.2.0.dev0", SemanticModel: `{"datasets":[]}`}},
+		semanticModelPath(catalogName, namespace, modelName))
 }
 
 // testPolicyContent is a valid system.data-compaction policy definition.
