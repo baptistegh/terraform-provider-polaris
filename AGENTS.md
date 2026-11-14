@@ -16,8 +16,11 @@ go build ./...
 make dev-up
 make dev-down
 
-# Run the acceptance tests against the local Polaris (all tests are acceptance tests;
-# without TF_ACC=1 they are skipped, so a plain `go test ./...` only checks compilation)
+# Run unit tests (CI runs this in the Build job). Acceptance tests (TestAcc*)
+# skip themselves without TF_ACC=1, so this needs no Polaris instance.
+make test
+
+# Run the acceptance tests against the local Polaris
 make testacc
 
 # Run a single acceptance test
@@ -139,3 +142,4 @@ Where `<type>` is the Terraform type name without the `polaris_` prefix, with sl
 - Use `checkTFAcc(t)` and `testAccPreCheck(t)` at the top of every `TestAcc*` function.
 - Use `testAccProviderConfig()` for the provider block — never hardcode credentials.
 - Test functions are named `TestAcc<Kind><Type>_<scenario>`, e.g. `TestAccDatasourcePrincipal_defaultsToProviderClientID`.
+- Logic that does not need a Polaris server (helpers in `apiclient.go`, `grants.go`, provider config validation, ...) should get plain unit tests (`Test<Name>`, no `checkTFAcc`), using `httptest` for HTTP behaviour. They run in CI via `make test`.
