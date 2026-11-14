@@ -6,6 +6,10 @@
   "labels": [
     "dependencies"
   ],
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
   "packageRules": [
     {
       "matchManagers": [
@@ -33,6 +37,24 @@
         "golangci/golangci-lint"
       ],
       "groupName": "golangci-lint"
+    },
+    {
+      "description": "Automerge minor/patch/digest updates once CI passes; wait a few days so broken or yanked releases are caught upstream first.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "A new Polaris server usually means the vendored spec/ should be refreshed: keep these for manual review.",
+      "matchPackageNames": [
+        "apache/polaris"
+      ],
+      "automerge": false
     }
   ],
   "customManagers": [

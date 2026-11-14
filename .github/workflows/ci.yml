@@ -1,9 +1,9 @@
 name: CI
 
 on:
+  # No paths filter on pull_request: these jobs are required status checks, and a
+  # skipped workflow would leave README-only PRs waiting forever.
   pull_request:
-    paths-ignore:
-      - 'README.md'
   push:
     branches:
       - main
