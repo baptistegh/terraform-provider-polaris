@@ -179,6 +179,8 @@ func (p *PolarisProvider) Resources(_ context.Context) []func() resource.Resourc
 		newTableGrantResource,
 		newViewGrantResource,
 		newPolicyGrantResource,
+		newSemanticModelGrantResource,
+		newCatalogResource,
 	}
 }
 

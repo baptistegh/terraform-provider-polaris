@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -272,6 +273,37 @@ func TestDoJSON_unexpectedStatus(t *testing.T) {
 	for _, want := range []string{"POST /api/management/v1/catalogs/c1/catalog-roles/r1/grants", "HTTP 403 (expected 201)", "not authorized"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not contain %q", err.Error(), want)
+		}
+	}
+}
+
+func TestDoJSON_notFound(t *testing.T) {
+	srv, _ := newTestServer(t, http.StatusNotFound, `{"error":{"message":"no such catalog"}}`)
+	client := newManagementClient(srv.URL, srv.Client(), "tok", "", defaultRealmHeader)
+
+	err := doJSON(context.Background(), client, http.MethodGet, "/catalogs/c1", nil, http.StatusOK, nil)
+	if !isNotFoundError(err) {
+		t.Fatalf("isNotFoundError(%v) = false, want true", err)
+	}
+	if !strings.Contains(err.Error(), "HTTP 404 (expected 200)") {
+		t.Errorf("error %q does not state the status", err.Error())
+	}
+}
+
+func TestIsNotFoundError(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"plain error", errors.New("boom"), false},
+		{"403", &unexpectedStatusError{StatusCode: http.StatusForbidden}, false},
+		{"404", &unexpectedStatusError{StatusCode: http.StatusNotFound}, true},
+		{"wrapped 404", fmt.Errorf("get: %w", &unexpectedStatusError{StatusCode: http.StatusNotFound}), true},
+	} {
+		if got := isNotFoundError(tc.err); got != tc.want {
+			t.Errorf("%s: isNotFoundError = %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }
