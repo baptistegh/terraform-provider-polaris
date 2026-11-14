@@ -33,7 +33,7 @@ func testCheckNamespaces(ds string, want ...string) resource.TestCheckFunc {
 		}
 		sort.Strings(got)
 		sort.Strings(want)
-		if !reflect.DeepEqual(got, want) && !(len(got) == 0 && len(want) == 0) {
+		if len(got) != len(want) || (len(got) > 0 && !reflect.DeepEqual(got, want)) {
 			return fmt.Errorf("%s: namespaces = %q, want %q", ds, got, want)
 		}
 		return nil
