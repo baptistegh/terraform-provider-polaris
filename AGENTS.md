@@ -30,6 +30,9 @@ TF_ACC=1 POLARIS_BASE_URL=http://localhost:8181 POLARIS_CLIENT_ID=root POLARIS_C
 # Lint (runs golangci-lint in Docker, version pinned in Makefile)
 make lint
 
+# Refresh the vendored specs from the Polaris release in POLARIS_SPEC_TAG (Makefile)
+make update-spec
+
 # Re-generate the management API client (after updating spec/) — runs openapi-generator in Docker
 make generate-client
 
@@ -55,7 +58,9 @@ This is a [Terraform Plugin Framework](https://developer.hashicorp.com/terraform
 ```
 main.go                        # calls providerserver.Serve
 spec/
-  polaris-management-service.yml  # upstream OpenAPI spec (source of truth — do not edit)
+  README.md                       # where the specs come from and how they are used
+  polaris-management-service.yml  # upstream management API spec (source of truth — do not edit)
+  bundled-polaris-catalog-service.yaml  # upstream catalog API spec: Iceberg REST + Polaris-native (do not edit; no client generated)
 pkg/
   polarismanagement/           # generated Go client for /api/management/v1 (importable externally)
     openapi-generator.yaml     # openapi-generator config (the only hand-written file here)
@@ -63,9 +68,10 @@ pkg/
 internal/
   provider/
     provider.go                # provider.Provider implementation, ProviderData, token fetching; registers resources/data sources
-    apiclient.go               # newManagementClient, checkResponse, isNotFound, doJSON, isNotFoundError
+    apiclient.go               # newManagementClient, checkResponse, isNotFound, doJSON / doCatalogJSON, catalog API path helpers, isNotFoundError
     grants.go                  # shared grant helpers (list/add/revoke via doJSON)
     catalog.go                 # catalog payloads and API calls via doJSON, model conversions (shared by resource and data source)
+    namespace.go               # namespace payloads and property helpers (catalog API); `location` is server-managed and never removed
     resource_catalog.go        # polaris_catalog
     resource_principal.go      # polaris_principal
     resource_principal_credentials.go # polaris_principal_credentials (reset/rotate; managed, not ephemeral)
@@ -106,6 +112,18 @@ if err := checkResponse(httpResp, err, http.StatusOK); err != nil { /* report */
 
 Grants and catalogs are the exceptions: the generator flattens `allOf` + discriminator subtypes, so the generated `GrantResource` only carries `type`, `StorageConfigInfo` drops every S3/Azure/GCS field and `Catalog` has no `connectionConfigInfo`. Those endpoints go through `doJSON` with hand-written payloads (`internal/provider/grants.go`, `internal/provider/catalog.go`); use `isNotFoundError(err)` to detect a 404 from `doJSON`.
 
+### Catalog API (`/api/catalog`)
+
+Namespaces, policies and the other catalog objects are served by the catalog API, specified in `spec/bundled-polaris-catalog-service.yaml`: the Iceberg REST catalog API under `/v1/{prefix}` and the Polaris-native APIs under `/polaris/v1/{prefix}`, where `{prefix}` is the catalog name. No client is generated from it (the generated Go code does not compile and is ~48k lines, see `spec/README.md`): call it with `doCatalogJSON` and hand-written payloads, reusing the management client for the base URL and auth headers. Build paths with the helpers, which escape every segment:
+
+```go
+path := icebergCatalogPath(catalog, "namespaces", namespacePath(ns)) // /v1/{catalog}/namespaces/a%1Fb
+err := doCatalogJSON(ctx, client, http.MethodGet, path, nil, http.StatusOK, &out)
+if isNotFoundError(err) { /* gone */ }
+```
+
+`polarisCatalogPath` is the same for `/polaris/v1/{catalog}/...` (policies, semantic models). `namespacePath` joins the levels with the unit separator (`0x1F`) and escapes them, as the Iceberg REST spec requires.
+
 Authentication uses OAuth2 client credentials against `/api/catalog/v1/oauth/tokens`, which the management spec does not cover; `fetchToken` in `provider.go` implements it (scope `PRINCIPAL_ROLE:ALL`). A pre-fetched `token` can be configured instead.
 
 ### Provider configuration
@@ -139,7 +157,7 @@ Where `<type>` is the Terraform type name without the `polaris_` prefix, with sl
 - Acceptance tests use `resource.Test` with `providerFactories` and helpers from `provider_test.go`. Test environment variables: `TF_ACC=1`, `POLARIS_BASE_URL`, `POLARIS_CLIENT_ID`, `POLARIS_CLIENT_SECRET`, `POLARIS_REALM`.
 - Tests that need a principal created outside Terraform (e.g. to authenticate as it) call `testCreatePrincipal(t)`, which returns its name, client ID and secret.
 - Tests that need a catalog call `testCreateCatalog(t)` — it creates a random catalog via the API and registers `t.Cleanup` to delete it. No `POLARIS_TEST_CATALOG` env var is needed.
-- Tests that need a namespace, table, view or semantic model call `testCreateNamespace`, `testCreateTable`, `testCreateView` or `testCreateSemanticModel` — same pattern.
+- Tests that need a namespace, table, view or semantic model call `testCreateNamespace`, `testCreateTable`, `testCreateView` or `testCreateSemanticModel` — same pattern. They go through `doCatalogJSON` with the `testClient(t)` management client; build new fixture helpers the same way (`testCreateCatalogObject`).
 - `docker-compose.yml` (used locally and in CI) enables the `ENABLE_CATALOG_FEDERATION` and `ENABLE_SEMANTIC_MODELS` server features that the federated catalog and semantic model grant tests need.
 
 ### Testing — MANDATORY
@@ -151,7 +169,7 @@ Where `<type>` is the Terraform type name without the `polaris_` prefix, with sl
 - Use `checkTFAcc(t)` and `testAccPreCheck(t)` at the top of every `TestAcc*` function.
 - Use `testAccProviderConfig()` for the provider block — never hardcode credentials.
 - Test functions are named `TestAcc<Kind><Type>_<scenario>`, e.g. `TestAccDatasourcePrincipal_defaultsToProviderClientID`.
-- Logic that does not need a Polaris server (helpers in `apiclient.go`, `grants.go`, provider config validation, ...) should get plain unit tests (`Test<Name>`, no `checkTFAcc`), using `httptest` for HTTP behaviour. They run in CI via `make test`.
+- Logic that does not need a Polaris server (helpers in `apiclient.go`, `grants.go`, `catalog.go`, provider config validation, ...) should get plain unit tests (`Test<Name>`, no `checkTFAcc`), using `httptest` for HTTP behaviour. They run in CI via `make test`.
 
 ### Commits and AI attribution — MANDATORY
 

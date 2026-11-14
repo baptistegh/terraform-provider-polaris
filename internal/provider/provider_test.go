@@ -1,13 +1,11 @@
 package provider
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/baptistegh/terraform-provider-polaris/pkg/polarismanagement"
@@ -51,29 +49,28 @@ func checkTFAcc(t *testing.T) {
 	}
 }
 
+// testClient returns a management API client authenticated with the acceptance test
+// credentials from the environment. Test helpers use it to create fixtures outside
+// Terraform; doCatalogJSON reaches the catalog API through the same client.
+func testClient(t *testing.T) *polarismanagement.APIClient {
+	t.Helper()
+
+	baseURL, realm := os.Getenv("POLARIS_BASE_URL"), os.Getenv("POLARIS_REALM")
+	httpClient := &http.Client{}
+	token, err := fetchToken(context.Background(), httpClient, baseURL, os.Getenv("POLARIS_CLIENT_ID"), os.Getenv("POLARIS_CLIENT_SECRET"), realm, defaultRealmHeader)
+	if err != nil {
+		t.Fatalf("testClient: fetch token: %v", err)
+	}
+	return newManagementClient(baseURL, httpClient, token, realm, defaultRealmHeader)
+}
+
 // testCreateCatalog creates a temporary INTERNAL/FILE catalog with a random name,
 // registers t.Cleanup to delete it, and returns the catalog name.
-// It builds a management client directly from env vars so it works outside Terraform apply.
 func testCreateCatalog(t *testing.T) string {
 	t.Helper()
 
-	baseURL := os.Getenv("POLARIS_BASE_URL")
-	clientID := os.Getenv("POLARIS_CLIENT_ID")
-	clientSecret := os.Getenv("POLARIS_CLIENT_SECRET")
-	realm := os.Getenv("POLARIS_REALM")
-
-	ctx := context.Background()
-	httpClient := &http.Client{}
-
-	token, err := fetchToken(ctx, httpClient, baseURL, clientID, clientSecret, realm, defaultRealmHeader)
-	if err != nil {
-		t.Fatalf("testCreateCatalog: fetch token: %v", err)
-	}
-
-	client := newManagementClient(baseURL, httpClient, token, realm, defaultRealmHeader)
-
+	client := testClient(t)
 	name := acctest.RandomWithPrefix("tf-acc")
-
 	catalog := polarismanagement.Catalog{
 		Name: name,
 		Type: "INTERNAL",
@@ -85,7 +82,7 @@ func testCreateCatalog(t *testing.T) string {
 		},
 	}
 
-	_, httpResp, err := client.DefaultAPI.CreateCatalog(ctx).
+	_, httpResp, err := client.DefaultAPI.CreateCatalog(context.Background()).
 		CreateCatalogRequest(polarismanagement.CreateCatalogRequest{Catalog: catalog}).
 		Execute()
 	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {
@@ -102,64 +99,31 @@ func testCreateCatalog(t *testing.T) string {
 	return name
 }
 
+// testCreateCatalogObject creates an object through the catalog API (POST path with body,
+// expecting 200) and registers t.Cleanup to DELETE cleanupPath, expecting 204.
+func testCreateCatalogObject(t *testing.T, what, path string, body any, cleanupPath string) {
+	t.Helper()
+
+	client := testClient(t)
+	if err := doCatalogJSON(context.Background(), client, http.MethodPost, path, body, http.StatusOK, nil); err != nil {
+		t.Fatalf("create %s: %v", what, err)
+	}
+	t.Cleanup(func() {
+		if err := doCatalogJSON(context.Background(), client, http.MethodDelete, cleanupPath, nil, http.StatusNoContent, nil); err != nil {
+			t.Logf("cleanup: delete %s: %v", what, err)
+		}
+	})
+}
+
 // testCreateNamespace creates a namespace in the given catalog via the Iceberg REST API.
 // Polaris requires the namespace to exist before grants can be applied to it.
 // Registers t.Cleanup to delete the namespace.
 func testCreateNamespace(t *testing.T, catalogName string, namespace []string) {
 	t.Helper()
-
-	baseURL := os.Getenv("POLARIS_BASE_URL")
-	clientID := os.Getenv("POLARIS_CLIENT_ID")
-	clientSecret := os.Getenv("POLARIS_CLIENT_SECRET")
-	realm := os.Getenv("POLARIS_REALM")
-
-	ctx := context.Background()
-	httpClient := &http.Client{}
-
-	token, err := fetchToken(ctx, httpClient, baseURL, clientID, clientSecret, realm, defaultRealmHeader)
-	if err != nil {
-		t.Fatalf("testCreateNamespace: fetch token: %v", err)
-	}
-
-	authHeader := "Bearer " + token
-
-	createURL := fmt.Sprintf("%s/api/catalog/v1/%s/namespaces", strings.TrimRight(baseURL, "/"), catalogName)
-	payload, _ := json.Marshal(map[string]any{"namespace": namespace, "properties": map[string]string{}})
-
-	createReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, createURL, bytes.NewReader(payload))
-	createReq.Header.Set("Content-Type", "application/json")
-	createReq.Header.Set("Authorization", authHeader)
-	if realm != "" {
-		createReq.Header.Set(defaultRealmHeader, realm)
-	}
-
-	resp, err := httpClient.Do(createReq)
-	if err != nil {
-		t.Fatalf("testCreateNamespace: API call: %v", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		var body map[string]any
-		_ = json.NewDecoder(resp.Body).Decode(&body)
-		t.Fatalf("testCreateNamespace: expected 200/201, got %d: %v", resp.StatusCode, body)
-	}
-
-	t.Cleanup(func() {
-		nsPath := strings.Join(namespace, "\x1f")
-		deleteURL := fmt.Sprintf("%s/api/catalog/v1/%s/namespaces/%s", strings.TrimRight(baseURL, "/"), catalogName, nsPath)
-		deleteReq, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, deleteURL, nil)
-		deleteReq.Header.Set("Authorization", authHeader)
-		if realm != "" {
-			deleteReq.Header.Set(defaultRealmHeader, realm)
-		}
-		delResp, err := httpClient.Do(deleteReq)
-		if err != nil {
-			t.Logf("testCreateNamespace cleanup: delete %v: %v", namespace, err)
-			return
-		}
-		_ = delResp.Body.Close()
-	})
+	testCreateCatalogObject(t, fmt.Sprintf("namespace %v", namespace),
+		icebergCatalogPath(catalogName, "namespaces"),
+		createNamespacePayload{Namespace: namespace},
+		icebergCatalogPath(catalogName, "namespaces", namespacePath(namespace)))
 }
 
 // testCreateTable creates a minimal Iceberg table in the given catalog+namespace.
@@ -167,71 +131,22 @@ func testCreateNamespace(t *testing.T, catalogName string, namespace []string) {
 // Registers t.Cleanup to drop the table.
 func testCreateTable(t *testing.T, catalogName string, namespace []string, tableName string) {
 	t.Helper()
-
-	baseURL := os.Getenv("POLARIS_BASE_URL")
-	clientID := os.Getenv("POLARIS_CLIENT_ID")
-	clientSecret := os.Getenv("POLARIS_CLIENT_SECRET")
-	realm := os.Getenv("POLARIS_REALM")
-
-	ctx := context.Background()
-	httpClient := &http.Client{}
-
-	token, err := fetchToken(ctx, httpClient, baseURL, clientID, clientSecret, realm, defaultRealmHeader)
-	if err != nil {
-		t.Fatalf("testCreateTable: fetch token: %v", err)
-	}
-
-	authHeader := "Bearer " + token
-	nsSegment := strings.Join(namespace, "\x1f")
-	baseURL = strings.TrimRight(baseURL, "/")
-
-	createURL := fmt.Sprintf("%s/api/catalog/v1/%s/namespaces/%s/tables", baseURL, catalogName, nsSegment)
-	payload, _ := json.Marshal(map[string]any{
-		"name": tableName,
-		"schema": map[string]any{
-			"type":      "struct",
-			"schema-id": 0,
-			"fields":    []map[string]any{{"id": 1, "name": "id", "required": false, "type": "long"}},
+	ns := namespacePath(namespace)
+	testCreateCatalogObject(t, "table "+tableName,
+		icebergCatalogPath(catalogName, "namespaces", ns, "tables"),
+		map[string]any{
+			"name": tableName,
+			"schema": map[string]any{
+				"type":      "struct",
+				"schema-id": 0,
+				"fields":    []map[string]any{{"id": 1, "name": "id", "required": false, "type": "long"}},
+			},
+			"partition-spec": map[string]any{"spec-id": 0, "fields": []any{}},
+			"write-order":    map[string]any{"order-id": 0, "fields": []any{}},
+			"stage-create":   false,
+			"properties":     map[string]string{},
 		},
-		"partition-spec": map[string]any{"spec-id": 0, "fields": []any{}},
-		"write-order":    map[string]any{"order-id": 0, "fields": []any{}},
-		"stage-create":   false,
-		"properties":     map[string]string{},
-	})
-
-	createReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, createURL, bytes.NewReader(payload))
-	createReq.Header.Set("Content-Type", "application/json")
-	createReq.Header.Set("Authorization", authHeader)
-	if realm != "" {
-		createReq.Header.Set(defaultRealmHeader, realm)
-	}
-
-	resp, err := httpClient.Do(createReq)
-	if err != nil {
-		t.Fatalf("testCreateTable: API call: %v", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		var body map[string]any
-		_ = json.NewDecoder(resp.Body).Decode(&body)
-		t.Fatalf("testCreateTable: expected 200/201, got %d: %v", resp.StatusCode, body)
-	}
-
-	t.Cleanup(func() {
-		deleteURL := fmt.Sprintf("%s/api/catalog/v1/%s/namespaces/%s/tables/%s", baseURL, catalogName, nsSegment, tableName)
-		deleteReq, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, deleteURL, nil)
-		deleteReq.Header.Set("Authorization", authHeader)
-		if realm != "" {
-			deleteReq.Header.Set(defaultRealmHeader, realm)
-		}
-		delResp, err := httpClient.Do(deleteReq)
-		if err != nil {
-			t.Logf("testCreateTable cleanup: delete %s: %v", tableName, err)
-			return
-		}
-		_ = delResp.Body.Close()
-	})
+		icebergCatalogPath(catalogName, "namespaces", ns, "tables", url.PathEscape(tableName)))
 }
 
 // testCreateView creates a minimal Iceberg view in the given catalog+namespace.
@@ -239,75 +154,26 @@ func testCreateTable(t *testing.T, catalogName string, namespace []string, table
 // Registers t.Cleanup to drop the view.
 func testCreateView(t *testing.T, catalogName string, namespace []string, viewName string) {
 	t.Helper()
-
-	baseURL := os.Getenv("POLARIS_BASE_URL")
-	clientID := os.Getenv("POLARIS_CLIENT_ID")
-	clientSecret := os.Getenv("POLARIS_CLIENT_SECRET")
-	realm := os.Getenv("POLARIS_REALM")
-
-	ctx := context.Background()
-	httpClient := &http.Client{}
-
-	token, err := fetchToken(ctx, httpClient, baseURL, clientID, clientSecret, realm, defaultRealmHeader)
-	if err != nil {
-		t.Fatalf("testCreateView: fetch token: %v", err)
-	}
-
-	authHeader := "Bearer " + token
-	nsSegment := strings.Join(namespace, "\x1f")
-	baseURL = strings.TrimRight(baseURL, "/")
-
-	createURL := fmt.Sprintf("%s/api/catalog/v1/%s/namespaces/%s/views", baseURL, catalogName, nsSegment)
-	payload, _ := json.Marshal(map[string]any{
-		"name":              viewName,
-		"default-namespace": namespace,
-		"schema":            map[string]any{"type": "struct", "schema-id": 0, "fields": []any{}},
-		"view-version": map[string]any{
-			"version-id":        1,
-			"schema-id":         -1,
-			"timestamp-ms":      0,
+	ns := namespacePath(namespace)
+	testCreateCatalogObject(t, "view "+viewName,
+		icebergCatalogPath(catalogName, "namespaces", ns, "views"),
+		map[string]any{
+			"name":              viewName,
 			"default-namespace": namespace,
-			"summary":           map[string]string{"operation": "replace"},
-			"representations": []map[string]string{
-				{"type": "sql", "sql": "SELECT 1 AS dummy", "dialect": "spark"},
+			"schema":            map[string]any{"type": "struct", "schema-id": 0, "fields": []any{}},
+			"view-version": map[string]any{
+				"version-id":        1,
+				"schema-id":         -1,
+				"timestamp-ms":      0,
+				"default-namespace": namespace,
+				"summary":           map[string]string{"operation": "replace"},
+				"representations": []map[string]string{
+					{"type": "sql", "sql": "SELECT 1 AS dummy", "dialect": "spark"},
+				},
 			},
+			"properties": map[string]string{},
 		},
-		"properties": map[string]string{},
-	})
-
-	createReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, createURL, bytes.NewReader(payload))
-	createReq.Header.Set("Content-Type", "application/json")
-	createReq.Header.Set("Authorization", authHeader)
-	if realm != "" {
-		createReq.Header.Set(defaultRealmHeader, realm)
-	}
-
-	resp, err := httpClient.Do(createReq)
-	if err != nil {
-		t.Fatalf("testCreateView: API call: %v", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		var body map[string]any
-		_ = json.NewDecoder(resp.Body).Decode(&body)
-		t.Fatalf("testCreateView: expected 200/201, got %d: %v", resp.StatusCode, body)
-	}
-
-	t.Cleanup(func() {
-		deleteURL := fmt.Sprintf("%s/api/catalog/v1/%s/namespaces/%s/views/%s", baseURL, catalogName, nsSegment, viewName)
-		deleteReq, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, deleteURL, nil)
-		deleteReq.Header.Set("Authorization", authHeader)
-		if realm != "" {
-			deleteReq.Header.Set(defaultRealmHeader, realm)
-		}
-		delResp, err := httpClient.Do(deleteReq)
-		if err != nil {
-			t.Logf("testCreateView cleanup: delete %s: %v", viewName, err)
-			return
-		}
-		_ = delResp.Body.Close()
-	})
+		icebergCatalogPath(catalogName, "namespaces", ns, "views", url.PathEscape(viewName)))
 }
 
 // testCreateSemanticModel creates an empty semantic model in the given catalog+namespace
@@ -316,57 +182,15 @@ func testCreateView(t *testing.T, catalogName string, namespace []string, viewNa
 // Registers t.Cleanup to drop it.
 func testCreateSemanticModel(t *testing.T, catalogName string, namespace []string, modelName string) {
 	t.Helper()
-
-	baseURL := strings.TrimRight(os.Getenv("POLARIS_BASE_URL"), "/")
-	clientID := os.Getenv("POLARIS_CLIENT_ID")
-	clientSecret := os.Getenv("POLARIS_CLIENT_SECRET")
-	realm := os.Getenv("POLARIS_REALM")
-
-	ctx := context.Background()
-	httpClient := &http.Client{}
-
-	token, err := fetchToken(ctx, httpClient, baseURL, clientID, clientSecret, realm, defaultRealmHeader)
-	if err != nil {
-		t.Fatalf("testCreateSemanticModel: fetch token: %v", err)
-	}
-
-	do := func(ctx context.Context, method, url string, body []byte) (int, string, error) {
-		req, _ := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+token)
-		if realm != "" {
-			req.Header.Set(defaultRealmHeader, realm)
-		}
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			return 0, "", err
-		}
-		defer func() { _ = resp.Body.Close() }()
-		var b bytes.Buffer
-		_, _ = b.ReadFrom(resp.Body)
-		return resp.StatusCode, b.String(), nil
-	}
-
-	collectionURL := fmt.Sprintf("%s/api/catalog/polaris/v1/%s/namespaces/%s/semantic-models", baseURL, catalogName, strings.Join(namespace, "\x1f"))
+	ns := namespacePath(namespace)
 	// An Apache Ossie document with no datasets is the smallest valid semantic model.
-	payload, _ := json.Marshal(map[string]any{
-		"name":     modelName,
-		"document": map[string]string{"version": "0.2.0.dev0", "semantic_model": `{"datasets":[]}`},
-	})
-
-	status, body, err := do(ctx, http.MethodPost, collectionURL, payload)
-	if err != nil {
-		t.Fatalf("testCreateSemanticModel: API call: %v", err)
-	}
-	if status != http.StatusOK && status != http.StatusCreated {
-		t.Fatalf("testCreateSemanticModel: expected 200/201, got %d: %s (is ENABLE_SEMANTIC_MODELS on?)", status, body)
-	}
-
-	t.Cleanup(func() {
-		if _, _, err := do(context.Background(), http.MethodDelete, collectionURL+"/"+modelName, nil); err != nil {
-			t.Logf("testCreateSemanticModel cleanup: delete %s: %v", modelName, err)
-		}
-	})
+	testCreateCatalogObject(t, "semantic model "+modelName,
+		polarisCatalogPath(catalogName, "namespaces", ns, "semantic-models"),
+		map[string]any{
+			"name":     modelName,
+			"document": map[string]string{"version": "0.2.0.dev0", "semantic_model": `{"datasets":[]}`},
+		},
+		polarisCatalogPath(catalogName, "namespaces", ns, "semantic-models", url.PathEscape(modelName)))
 }
 
 // testCreatePrincipal creates a principal with a random name through the API, registers
@@ -374,18 +198,9 @@ func testCreateSemanticModel(t *testing.T, catalogName string, namespace []strin
 func testCreatePrincipal(t *testing.T) (name, clientID, clientSecret string) {
 	t.Helper()
 
-	ctx := context.Background()
-	httpClient := &http.Client{}
-	baseURL, realm := os.Getenv("POLARIS_BASE_URL"), os.Getenv("POLARIS_REALM")
-
-	token, err := fetchToken(ctx, httpClient, baseURL, os.Getenv("POLARIS_CLIENT_ID"), os.Getenv("POLARIS_CLIENT_SECRET"), realm, defaultRealmHeader)
-	if err != nil {
-		t.Fatalf("testCreatePrincipal: fetch token: %v", err)
-	}
-	client := newManagementClient(baseURL, httpClient, token, realm, defaultRealmHeader)
-
+	client := testClient(t)
 	name = acctest.RandomWithPrefix("tf-acc")
-	created, httpResp, err := client.DefaultAPI.CreatePrincipal(ctx).
+	created, httpResp, err := client.DefaultAPI.CreatePrincipal(context.Background()).
 		CreatePrincipalRequest(polarismanagement.CreatePrincipalRequest{Principal: &polarismanagement.Principal{Name: name}}).
 		Execute()
 	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {

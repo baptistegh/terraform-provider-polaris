@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Compare the Polaris management spec with the types the provider registers.
+"""Compare the vendored Polaris specs with the types the provider registers.
 
 Usage (from the repository root):
     python3 .agents/skills/spec-coverage/coverage.py [--json]
 
-Standard library only. The spec is parsed line by line, relying on the
-upstream layout: paths at 2-space indent, HTTP methods at 4, `operationId`
-inside each method, and the `GrantResource` discriminator mapping.
+Standard library only. Each spec in SPECS is parsed line by line, relying on
+the upstream layout: paths at 2-space indent, HTTP methods at 4, `operationId`
+inside each method, and (management spec) the `GrantResource` discriminator.
 """
 
 import json
@@ -15,7 +15,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-SPEC = ROOT / "spec" / "polaris-management-service.yml"
+MANAGEMENT_SPEC = ROOT / "spec" / "polaris-management-service.yml"
+# Iceberg REST catalog API + Polaris-native catalog APIs, served under /api/catalog.
+CATALOG_SPEC = ROOT / "spec" / "bundled-polaris-catalog-service.yaml"
+SPECS = [MANAGEMENT_SPEC, CATALOG_SPEC]
 PROVIDER_DIR = ROOT / "internal" / "provider"
 
 R, DS, EPH = "resource", "data-source", "ephemeral"
@@ -67,6 +70,63 @@ OPERATIONS = {
     "listGrantsForCatalogRole": "grants",
     "addGrantToCatalogRole": "grants",
     "revokeGrantFromCatalogRole": "grants",
+
+    # ---- Catalog API (CATALOG_SPEC) ----
+    # Provider and client plumbing, not objects to manage.
+    "getConfig": [],  # catalog client configuration
+    "getToken": [],  # OAuth token endpoint, used by the provider itself (fetchToken)
+    "listAccessibleCatalogs": [],  # the caller's view of catalogs; polaris_catalogs lists them all
+    # Namespaces (Iceberg REST)
+    "listNamespaces": [(DS, "polaris_namespaces")],
+    "createNamespace": [(R, "polaris_namespace")],
+    "loadNamespaceMetadata": [(R, "polaris_namespace"), (DS, "polaris_namespace")],
+    "namespaceExists": [],  # loadNamespaceMetadata already answers this
+    "dropNamespace": [(R, "polaris_namespace")],
+    "updateProperties": [(R, "polaris_namespace")],
+    # Tables and views: data objects created and changed by query engines (Spark, Trino, ...),
+    # not infrastructure. Grants on them exist (polaris_table_grant, polaris_view_grant).
+    "listTables": [],
+    "createTable": [],
+    "registerTable": [],
+    "loadTable": [],
+    "updateTable": [],
+    "dropTable": [],
+    "tableExists": [],
+    "loadCredentials": [],  # credential vending for engines
+    "signRequest": [],  # request signing for engines
+    "renameTable": [],
+    "reportMetrics": [],  # engine scan/commit metrics
+    "commitTransaction": [],
+    "listViews": [],
+    "createView": [],
+    "registerView": [],
+    "loadView": [],
+    "replaceView": [],
+    "dropView": [],
+    "viewExists": [],
+    "renameView": [],
+    "sendNotification": [],  # external catalogs notifying Polaris of table changes
+    # Generic tables (non-Iceberg formats): engine-managed like tables.
+    "listGenericTables": [],
+    "createGenericTable": [],
+    "loadGenericTable": [],
+    "dropGenericTable": [],
+    # Policies (Polaris-native)
+    "createPolicy": [(R, "polaris_policy")],
+    "listPolicies": [(DS, "polaris_policies")],
+    "loadPolicy": [(R, "polaris_policy"), (DS, "polaris_policy")],
+    "updatePolicy": [(R, "polaris_policy")],
+    "dropPolicy": [(R, "polaris_policy")],
+    "attachPolicy": [(R, "polaris_policy_attachment")],
+    "detachPolicy": [(R, "polaris_policy_attachment")],
+    "getApplicablePolicies": [],  # effective policies after inheritance: a computed view, not an object
+    # Semantic models (Polaris-native, needs ENABLE_SEMANTIC_MODELS): administrator-defined
+    # documents like policies, so expected as types (#27).
+    "createSemanticModel": [(R, "polaris_semantic_model")],
+    "listSemanticModels": [(DS, "polaris_semantic_models")],
+    "loadSemanticModel": [(R, "polaris_semantic_model"), (DS, "polaris_semantic_model")],
+    "updateSemanticModel": [(R, "polaris_semantic_model")],
+    "dropSemanticModel": [(R, "polaris_semantic_model")],
 }
 
 # Registered types that do not come from a spec operation.
@@ -87,7 +147,7 @@ def spec_operations(text):
             continue
         if m := re.match(r"^  (/\S*):\s*$", line):
             path, method = m.group(1), None
-        elif m := re.match(r"^    (get|put|post|delete|patch):\s*$", line):
+        elif m := re.match(r"^    (get|put|post|delete|patch|head):\s*$", line):
             method = m.group(1).upper()
         elif (m := re.match(r"^      operationId:\s*(\S+)", line)) and method:
             ops.append((method, path, m.group(1)))
@@ -130,19 +190,25 @@ def registered_types():
 
 
 def main():
-    text = SPEC.read_text()
-    ops = spec_operations(text)
-    grants = grant_types(text)
-    if not ops or not grants:
-        sys.exit(f"could not parse {SPEC.relative_to(ROOT)}: found {len(ops)} operations, {len(grants)} grant types")
+    ops = []  # (method, path, operationId, spec file)
+    per_spec = {}
+    for spec in SPECS:
+        spec_ops = spec_operations(spec.read_text())
+        if not spec_ops:
+            sys.exit(f"could not parse {spec.relative_to(ROOT)}: found no operations")
+        per_spec[spec.name] = len(spec_ops)
+        ops += [(m, p, o, spec.name) for m, p, o in spec_ops]
+    grants = grant_types(MANAGEMENT_SPEC.read_text())
+    if not grants:
+        sys.exit(f"could not parse {MANAGEMENT_SPEC.relative_to(ROOT)}: found no grant types")
 
     expected = {}  # (kind, type) -> [operationId]
     unmapped = []
     grant_ops = []
-    for method, path, op in ops:
+    for method, path, op, spec in ops:
         targets = OPERATIONS.get(op)
         if targets is None:
-            unmapped.append({"method": method, "path": path, "operationId": op})
+            unmapped.append({"method": method, "path": path, "operationId": op, "spec": spec})
         elif targets == "grants":
             grant_ops.append(op)
         else:
@@ -155,7 +221,7 @@ def main():
     missing = sorted((k, t, expected[(k, t)]) for (k, t) in expected if (k, t) not in registered)
     covered = sorted((k, t) for (k, t) in expected if (k, t) in registered)
     extra = sorted(k for k in registered if k not in expected and k not in PROVIDER_ONLY)
-    stale = sorted(op for op in OPERATIONS if op not in {o for _, _, o in ops})
+    stale = sorted(op for op in OPERATIONS if op not in {o for _, _, o, _ in ops})
 
     result = {
         "missing": [{"kind": k, "type": t, "operations": o} for k, t, o in missing],
@@ -168,7 +234,8 @@ def main():
         print(json.dumps(result, indent=2))
         return
 
-    print(f"Spec: {len(ops)} operations, grant types: {', '.join(grants)}")
+    print("Specs: " + ", ".join(f"{name} ({n} operations)" for name, n in per_spec.items()))
+    print(f"Grant types: {', '.join(grants)}")
     print(f"Provider: {len(registered)} registered types, {len(covered)}/{len(expected)} expected types covered\n")
     print("## Missing from the provider\n")
     if missing:
@@ -180,7 +247,7 @@ def main():
     if unmapped:
         print("\n## Spec operations with no mapping (new in the spec? add them to OPERATIONS)\n")
         for u in unmapped:
-            print(f"- `{u['method']} {u['path']}` ({u['operationId']})")
+            print(f"- `{u['method']} {u['path']}` ({u['operationId']}, {u['spec']})")
     if extra:
         print("\n## Registered but not expected from the spec\n")
         for k, t in extra:

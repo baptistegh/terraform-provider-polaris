@@ -15,6 +15,11 @@ GOLANGCI_LINT_VERSION ?= v2.15.0
 OPENAPI_GENERATOR_VERSION ?= v7.27.0
 CLIENT_DIR := pkg/polarismanagement
 
+# Upstream Polaris release the vendored spec/ files come from. Keep it in line with the
+# apache/polaris image in docker-compose.yml, then run `make update-spec generate`.
+POLARIS_SPEC_TAG ?= apache-polaris-1.9.0
+POLARIS_SPEC_URL := https://raw.githubusercontent.com/apache/polaris/$(POLARIS_SPEC_TAG)/spec
+
 default: build
 
 .PHONY: build
@@ -54,6 +59,13 @@ dev-token:
 		-H "Polaris-Realm: $(POLARIS_REALM)" \
 		-d "grant_type=client_credentials&client_id=$(POLARIS_CLIENT_ID)&client_secret=$(POLARIS_CLIENT_SECRET)&scope=PRINCIPAL_ROLE:ALL" \
 		| python3 -m json.tool
+
+# Downloads the management spec and the bundled catalog spec (Iceberg REST + Polaris-native
+# catalog APIs) from POLARIS_SPEC_TAG. See spec/README.md.
+.PHONY: update-spec
+update-spec:
+	curl -sSfL -o spec/polaris-management-service.yml $(POLARIS_SPEC_URL)/polaris-management-service.yml
+	curl -sSfL -o spec/bundled-polaris-catalog-service.yaml $(POLARIS_SPEC_URL)/generated/bundled-polaris-catalog-service.yaml
 
 .PHONY: generate
 generate: generate-client docs

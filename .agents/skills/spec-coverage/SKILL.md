@@ -1,6 +1,6 @@
 ---
 name: spec-coverage
-description: List the Terraform resources, data sources and ephemeral resources that the Polaris management spec (spec/polaris-management-service.yml) supports but the provider does not register yet. Use when asked what is missing, unimplemented or left to do in the provider, after updating the spec to a new Polaris version, or before picking the next type to implement with the add-resource skill.
+description: List the Terraform resources, data sources and ephemeral resources that the vendored Polaris specs (management API and catalog API, in spec/) support but the provider does not register yet. Use when asked what is missing, unimplemented or left to do in the provider, after updating the spec to a new Polaris version, or before picking the next type to implement with the add-resource skill.
 ---
 
 # Spec coverage
@@ -18,13 +18,14 @@ Standard library only, nothing to install.
 
 ## How it works
 
-1. **Spec side:** it reads every `operationId` under `paths:` in `spec/polaris-management-service.yml`, plus the `GrantResource` discriminator values (`catalog`, `namespace`, `table`, ...).
+1. **Spec side:** it reads every `operationId` under `paths:` in each spec of `SPECS`: `spec/polaris-management-service.yml` (management API) and `spec/bundled-polaris-catalog-service.yaml` (catalog API: Iceberg REST + Polaris-native), plus the `GrantResource` discriminator values (`catalog`, `namespace`, `table`, ...) from the management spec.
 2. **Expected types:** the `OPERATIONS` table in `coverage.py` maps each operationId to the Terraform types that should cover it:
    - CRUD on an entity → a resource `polaris_<entity>`; its `get*` → also a data source `polaris_<entity>`; its `list*` → a plural data source `polaris_<entities>`.
    - `assign*` / `revoke*` / `list*Assigned` → the `*_assignment` resource.
    - `rotateCredentials` / `resetCredentials` → the `polaris_principal_credentials` resource (managed, not ephemeral: both calls invalidate the previous secret, so an ephemeral resource would issue new credentials on every plan).
    - Each grant discriminator value `<t>` → a resource `polaris_<t>_grant` (hyphens become underscores).
-   - `[]` means intentionally not exposed (reverse lookups), with the reason in a comment.
+   - Catalog API: namespaces, policies, policy attachments and semantic models follow the same CRUD/get/list rules. Tables, views, generic tables and the other engine-facing operations (credential vending, signing, metrics, commits, notifications) are `[]`: query engines manage those objects.
+   - `[]` means intentionally not exposed (reverse lookups, computed views, engine-managed objects, provider plumbing), with the reason in a comment.
 3. **Provider side:** it reads the constructors in `Resources()`, `DataSources()` and `EphemeralResources()` in `internal/provider/provider.go`, then takes the type name from each constructor's `Metadata` (`req.ProviderTypeName + "_<type>"`). Only *registered* types count: a file that exists but isn't registered is reported as missing.
 
 ## Report sections

@@ -341,3 +341,84 @@ func TestDoJSON_transportError(t *testing.T) {
 		t.Fatal("got nil error with the server closed")
 	}
 }
+
+func TestNamespacePath(t *testing.T) {
+	for _, tc := range []struct {
+		in   []string
+		want string
+	}{
+		{[]string{"sales"}, "sales"},
+		{[]string{"sales", "eu"}, "sales%1Feu"},
+		{[]string{"a b", "c/d"}, "a%20b%1Fc%2Fd"},
+	} {
+		if got := namespacePath(tc.in); got != tc.want {
+			t.Errorf("namespacePath(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestCatalogPaths(t *testing.T) {
+	if got, want := icebergCatalogPath("my cat", "namespaces", namespacePath([]string{"a", "b"})), "/v1/my%20cat/namespaces/a%1Fb"; got != want {
+		t.Errorf("icebergCatalogPath = %q, want %q", got, want)
+	}
+	if got, want := polarisCatalogPath("c1", "namespaces", "ns", "policies"), "/polaris/v1/c1/namespaces/ns/policies"; got != want {
+		t.Errorf("polarisCatalogPath = %q, want %q", got, want)
+	}
+	if got, want := icebergCatalogPath("c1"), "/v1/c1"; got != want {
+		t.Errorf("icebergCatalogPath without segments = %q, want %q", got, want)
+	}
+}
+
+func TestDoCatalogJSON_usesCatalogAPIBase(t *testing.T) {
+	srv, reqs := newTestServer(t, http.StatusOK, `{"namespace":["a","b"],"properties":{"k":"v"}}`)
+	client := newManagementClient(srv.URL+"/", srv.Client(), "tok", "POLARIS", defaultRealmHeader)
+
+	var out struct {
+		Namespace  []string          `json:"namespace"`
+		Properties map[string]string `json:"properties"`
+	}
+	path := icebergCatalogPath("c1", "namespaces", namespacePath([]string{"a", "b"}))
+	if err := doCatalogJSON(context.Background(), client, http.MethodGet, path, nil, http.StatusOK, &out); err != nil {
+		t.Fatalf("doCatalogJSON: %v", err)
+	}
+	r := onlyRequest(t, reqs())
+	if r.Path != "/api/catalog/v1/c1/namespaces/a%1Fb" {
+		t.Errorf("path = %q, want /api/catalog/v1/c1/namespaces/a%%1Fb", r.Path)
+	}
+	if got := r.Header.Get("Authorization"); got != "Bearer tok" {
+		t.Errorf("Authorization = %q", got)
+	}
+	if got := r.Header.Get(defaultRealmHeader); got != "POLARIS" {
+		t.Errorf("realm header = %q", got)
+	}
+	if len(out.Namespace) != 2 || out.Properties["k"] != "v" {
+		t.Errorf("decoded %+v", out)
+	}
+}
+
+func TestDoCatalogJSON_notFound(t *testing.T) {
+	srv, _ := newTestServer(t, http.StatusNotFound, `{"error":{"message":"Namespace does not exist"}}`)
+	client := newManagementClient(srv.URL, srv.Client(), "tok", "", defaultRealmHeader)
+
+	err := doCatalogJSON(context.Background(), client, http.MethodGet, polarisCatalogPath("c1", "namespaces", "ns", "policies", "p"), nil, http.StatusOK, nil)
+	if !isNotFoundError(err) {
+		t.Fatalf("isNotFoundError(%v) = false", err)
+	}
+	if !strings.Contains(err.Error(), "GET /api/catalog/polaris/v1/c1/namespaces/ns/policies/p returned HTTP 404") {
+		t.Errorf("error %q does not state the catalog API path", err.Error())
+	}
+}
+
+// A 204 (or any empty body) is not a decode error, even when a response value is passed.
+func TestDoJSON_emptyResponseBody(t *testing.T) {
+	srv, _ := newTestServer(t, http.StatusNoContent, "")
+	client := newManagementClient(srv.URL, srv.Client(), "tok", "", defaultRealmHeader)
+
+	var out map[string]any
+	if err := doCatalogJSON(context.Background(), client, http.MethodDelete, icebergCatalogPath("c1", "namespaces", "ns"), nil, http.StatusNoContent, &out); err != nil {
+		t.Fatalf("doCatalogJSON: %v", err)
+	}
+	if out != nil {
+		t.Errorf("out = %v, want untouched", out)
+	}
+}
