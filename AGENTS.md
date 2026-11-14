@@ -71,6 +71,7 @@ internal/
     apiclient.go               # newManagementClient, checkResponse, isNotFound, doJSON / doCatalogJSON, catalog API path helpers, isNotFoundError
     grants.go                  # shared grant helpers (list/add/revoke via doJSON)
     catalog.go                 # catalog payloads and API calls via doJSON, model conversions (shared by resource and data source)
+    namespace.go               # namespace payloads and property helpers (catalog API); `location` is server-managed and never removed
     resource_catalog.go        # polaris_catalog
     resource_principal.go      # polaris_principal
     resource_principal_credentials.go # polaris_principal_credentials (reset/rotate; managed, not ephemeral)

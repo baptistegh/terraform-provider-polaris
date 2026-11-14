@@ -122,7 +122,7 @@ func testCreateNamespace(t *testing.T, catalogName string, namespace []string) {
 	t.Helper()
 	testCreateCatalogObject(t, fmt.Sprintf("namespace %v", namespace),
 		icebergCatalogPath(catalogName, "namespaces"),
-		map[string]any{"namespace": namespace, "properties": map[string]string{}},
+		createNamespacePayload{Namespace: namespace},
 		icebergCatalogPath(catalogName, "namespaces", namespacePath(namespace)))
 }
 
