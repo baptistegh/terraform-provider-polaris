@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -24,7 +23,7 @@ var (
 )
 
 type principalResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type principalResourceModel struct {
@@ -128,27 +127,15 @@ func (r *principalResource) Create(ctx context.Context, req resource.CreateReque
 		principal.Properties = &props
 	}
 
-	body := polarismanagement.CreatePrincipalJSONRequestBody{Principal: &principal}
+	body := polarismanagement.CreatePrincipalRequest{Principal: &principal}
 	if !plan.CredentialRotationRequired.IsNull() && !plan.CredentialRotationRequired.IsUnknown() {
 		v := plan.CredentialRotationRequired.ValueBool()
 		body.CredentialRotationRequired = &v
 	}
 
-	httpResp, err := r.client.CreatePrincipal(ctx, body)
-	if err != nil {
+	created, httpResp, err := r.client.DefaultAPI.CreatePrincipal(ctx).CreatePrincipalRequest(body).Execute()
+	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {
 		resp.Diagnostics.AddError("Failed to create principal", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusCreated {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /principals returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var created polarismanagement.PrincipalWithCredentials
-	if err := json.NewDecoder(httpResp.Body).Decode(&created); err != nil {
-		resp.Diagnostics.AddError("Failed to decode create response", err.Error())
 		return
 	}
 
@@ -178,29 +165,17 @@ func (r *principalResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	httpResp, err := r.client.GetPrincipal(ctx, state.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to get principal", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode == http.StatusNotFound {
+	principal, httpResp, err := r.client.DefaultAPI.GetPrincipal(ctx, state.Name.ValueString()).Execute()
+	if isNotFound(httpResp) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("GET /principals returned HTTP %d.", httpResp.StatusCode))
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
+		resp.Diagnostics.AddError("Failed to get principal", err.Error())
 		return
 	}
 
-	var principal polarismanagement.Principal
-	if err := json.NewDecoder(httpResp.Body).Decode(&principal); err != nil {
-		resp.Diagnostics.AddError("Failed to decode principal", err.Error())
-		return
-	}
-
-	next, ds := principalFromAPI(ctx, &principal, state.Properties)
+	next, ds := principalFromAPI(ctx, principal, state.Properties)
 	resp.Diagnostics.Append(ds...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -229,30 +204,18 @@ func (r *principalResource) Update(ctx context.Context, req resource.UpdateReque
 		}
 	}
 
-	body := polarismanagement.UpdatePrincipalJSONRequestBody{
-		CurrentEntityVersion: int(state.EntityVersion.ValueInt64()),
+	body := polarismanagement.UpdatePrincipalRequest{
+		CurrentEntityVersion: int32(state.EntityVersion.ValueInt64()),
 		Properties:           props,
 	}
 
-	httpResp, err := r.client.UpdatePrincipal(ctx, state.Name.ValueString(), body)
-	if err != nil {
+	updated, httpResp, err := r.client.DefaultAPI.UpdatePrincipal(ctx, state.Name.ValueString()).UpdatePrincipalRequest(body).Execute()
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
 		resp.Diagnostics.AddError("Failed to update principal", err.Error())
 		return
 	}
-	defer func() { _ = httpResp.Body.Close() }()
 
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("PUT /principals returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var updated polarismanagement.Principal
-	if err := json.NewDecoder(httpResp.Body).Decode(&updated); err != nil {
-		resp.Diagnostics.AddError("Failed to decode update response", err.Error())
-		return
-	}
-
-	next, ds := principalFromAPI(ctx, &updated, plan.Properties)
+	next, ds := principalFromAPI(ctx, updated, plan.Properties)
 	resp.Diagnostics.Append(ds...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -271,15 +234,9 @@ func (r *principalResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	httpResp, err := r.client.DeletePrincipal(ctx, state.Name.ValueString())
-	if err != nil {
+	httpResp, err := r.client.DefaultAPI.DeletePrincipal(ctx, state.Name.ValueString()).Execute()
+	if err := checkResponse(httpResp, err, http.StatusNoContent); err != nil {
 		resp.Diagnostics.AddError("Failed to delete principal", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusNoContent {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /principals returned HTTP %d.", httpResp.StatusCode))
 		return
 	}
 }

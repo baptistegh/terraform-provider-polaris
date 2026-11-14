@@ -20,7 +20,7 @@ var (
 )
 
 type policyGrantResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type policyGrantResourceModel struct {

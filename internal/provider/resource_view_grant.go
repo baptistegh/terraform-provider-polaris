@@ -20,7 +20,7 @@ var (
 )
 
 type viewGrantResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type viewGrantResourceModel struct {

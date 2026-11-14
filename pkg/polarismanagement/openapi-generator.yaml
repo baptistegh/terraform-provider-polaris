@@ -1,0 +1,9 @@
+# OpenAPI Generator config for the Polaris management client.
+# Regenerate with `make generate-client` (runs openapitools/openapi-generator-cli in Docker).
+generatorName: go
+packageName: polarismanagement
+additionalProperties:
+  withGoMod: false
+  isGoSubmodule: false
+  enumClassPrefix: true
+  generateInterfaces: true

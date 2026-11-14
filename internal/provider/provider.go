@@ -42,7 +42,7 @@ type providerModel struct {
 
 // ProviderData is passed to every resource and data source via their Configure method.
 type ProviderData struct {
-	Client   *polarismanagement.Client
+	Client   *polarismanagement.APIClient
 	Realm    string
 	ClientID string
 }
@@ -160,22 +160,7 @@ func (p *PolarisProvider) Configure(ctx context.Context, req provider.ConfigureR
 		token = fetched
 	}
 
-	managementURL := strings.TrimRight(baseURL, "/") + "/api/management/v1"
-	client, err := polarismanagement.NewClient(
-		managementURL,
-		polarismanagement.WithHTTPClient(httpClient),
-		polarismanagement.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
-			r.Header.Set("Authorization", "Bearer "+token)
-			if realm != "" {
-				r.Header.Set(realmHeader, realm)
-			}
-			return nil
-		}),
-	)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to create Polaris client", err.Error())
-		return
-	}
+	client := newManagementClient(baseURL, httpClient, token, realm, realmHeader)
 
 	pd := &ProviderData{Client: client, Realm: realm, ClientID: clientID}
 	resp.DataSourceData = pd

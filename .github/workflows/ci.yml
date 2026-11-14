@@ -1,9 +1,9 @@
 name: CI
 
 on:
+  # No paths filter on pull_request: these jobs are required status checks, and a
+  # skipped workflow would leave README-only PRs waiting forever.
   pull_request:
-    paths-ignore:
-      - 'README.md'
   push:
     branches:
       - main
@@ -26,10 +26,15 @@ jobs:
           cache: true
       - run: go mod download
       - run: go build -v .
+      # Unit tests only: acceptance tests (TestAcc*) skip themselves without TF_ACC
+      # and run in the "Acceptance Tests" job below.
       - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          # renovate: datasource=docker depName=golangci/golangci-lint
+          version: v2.15.0
+      - name: Unit tests
+        run: make test
 
   generate:
     name: Generate

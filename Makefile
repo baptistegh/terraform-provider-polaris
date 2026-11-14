@@ -8,6 +8,13 @@ POLARIS_CLIENT_ID     ?= root
 POLARIS_CLIENT_SECRET ?= s3cr3t
 POLARIS_REALM         ?= POLARIS
 
+# renovate: datasource=docker depName=golangci/golangci-lint
+GOLANGCI_LINT_VERSION ?= v2.15.0
+
+# renovate: datasource=docker depName=openapitools/openapi-generator-cli
+OPENAPI_GENERATOR_VERSION ?= v7.27.0
+CLIENT_DIR := pkg/polarismanagement
+
 default: build
 
 .PHONY: build
@@ -21,7 +28,7 @@ install: build
 
 .PHONY: test
 test:
-	go test ./... -count=1
+	go test -v ./... -count=1
 
 .PHONY: testacc
 testacc:
@@ -49,8 +56,21 @@ dev-token:
 		| python3 -m json.tool
 
 .PHONY: generate
-generate:
-	go generate ./...
+generate: generate-client docs
+
+# Regenerates the management API client from spec/ with openapi-generator (Docker).
+.PHONY: generate-client
+generate-client:
+	find $(CLIENT_DIR) -name '*.go' -delete
+	rm -rf $(CLIENT_DIR)/api $(CLIENT_DIR)/.openapi-generator
+	docker run --rm -u $$(id -u):$$(id -g) -v $(CURDIR):/local -w /local \
+		openapitools/openapi-generator-cli:$(OPENAPI_GENERATOR_VERSION) generate \
+		-i spec/polaris-management-service.yml \
+		-c $(CLIENT_DIR)/openapi-generator.yaml \
+		-o $(CLIENT_DIR) \
+		--global-property apis,models,supportingFiles=client.go:configuration.go:response.go:utils.go,apiDocs=false,modelDocs=false,apiTests=false,modelTests=false
+	rm -rf $(CLIENT_DIR)/api $(CLIENT_DIR)/.openapi-generator
+	gofmt -s -w $(CLIENT_DIR)
 
 .PHONY: docs
 docs:
@@ -58,7 +78,10 @@ docs:
 
 .PHONY: lint
 lint:
-	golangci-lint run
+	docker run --rm -t \
+		-v $(CURDIR):/app -w /app \
+		-v $(HOME)/.cache/golangci-lint:/root/.cache \
+		golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run
 
 .PHONY: fmt
 fmt:

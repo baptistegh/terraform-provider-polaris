@@ -20,7 +20,7 @@ var (
 )
 
 type tableGrantResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type tableGrantResourceModel struct {

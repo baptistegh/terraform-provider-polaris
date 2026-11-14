@@ -20,7 +20,7 @@ var (
 )
 
 type namespaceGrantResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type namespaceGrantResourceModel struct {
