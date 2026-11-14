@@ -58,4 +58,11 @@ release:
   extra_files:
     - glob: terraform-registry-manifest.json
       name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
+  # release-please creates the draft release (tag + changelog notes); upload the
+  # artifacts into it and keep its notes. The release workflow publishes it afterwards.
   draft: true
+  use_existing_draft: true
+  mode: keep-existing
+changelog:
+  # Release notes come from release-please (CHANGELOG.md).
+  disable: true
