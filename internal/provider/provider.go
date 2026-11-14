@@ -182,6 +182,7 @@ func (p *PolarisProvider) Resources(_ context.Context) []func() resource.Resourc
 		newPolicyGrantResource,
 		newSemanticModelGrantResource,
 		newCatalogResource,
+		newNamespaceResource,
 	}
 }
 
@@ -196,6 +197,8 @@ func (p *PolarisProvider) DataSources(_ context.Context) []func() datasource.Dat
 		newCatalogsDataSource,
 		newCatalogRoleDataSource,
 		newCatalogRolesDataSource,
+		newNamespaceDataSource,
+		newNamespacesDataSource,
 	}
 }
 
