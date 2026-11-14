@@ -19,9 +19,11 @@ services:
       polaris.features."ALLOW_INSECURE_STORAGE_TYPES": "true"
       polaris.features."SUPPORTED_CATALOG_STORAGE_TYPES": "[\"FILE\",\"S3\",\"GCS\",\"AZURE\"]"
 
-      # Off by default; the provider tests need them (federated EXTERNAL catalogs, semantic model grants)
+      # Off by default; the provider tests need them (federated EXTERNAL catalogs, semantic model
+      # grants and resources, namespaces with a custom location)
       polaris.features."ENABLE_CATALOG_FEDERATION": "true"
       polaris.features."ENABLE_SEMANTIC_MODELS": "true"
+      polaris.features."ALLOW_NAMESPACE_CUSTOM_LOCATION": "true"
 
       # Let the server start even if non-critical checks fail
       polaris.readiness.ignore-severe-issues: "true"

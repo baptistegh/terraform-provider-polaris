@@ -1,6 +1,15 @@
 package provider
 
-import "sort"
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/url"
+	"sort"
+	"strings"
+
+	"github.com/baptistegh/terraform-provider-polaris/pkg/polarismanagement"
+)
 
 // Namespaces are Iceberg REST catalog API objects (doCatalogJSON, icebergCatalogPath,
 // namespacePath). These payloads and helpers are shared by the namespace fixtures in the
@@ -87,4 +96,92 @@ func namespacePropertiesUpdate(current, desired map[string]string, location *str
 		req.Updates = updates
 	}
 	return req, true
+}
+
+func createNamespace(ctx context.Context, client *polarismanagement.APIClient, catalog string, p createNamespacePayload) (*namespacePayload, error) {
+	var out namespacePayload
+	if err := doCatalogJSON(ctx, client, http.MethodPost, icebergCatalogPath(catalog, "namespaces"), p, http.StatusOK, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// getNamespace returns the namespace; use isNotFoundError on the error to detect a missing one.
+func getNamespace(ctx context.Context, client *polarismanagement.APIClient, catalog string, namespace []string) (*namespacePayload, error) {
+	var out namespacePayload
+	if err := doCatalogJSON(ctx, client, http.MethodGet, icebergCatalogPath(catalog, "namespaces", namespacePath(namespace)), nil, http.StatusOK, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// updateNamespaceProperties applies req. Polaris 1.9.0 rejects a request carrying both
+// removals and updates with HTTP 409 (CommitConflictException, "Concurrent modification
+// of namespace"), while each alone succeeds, so they are sent as two requests: updates
+// first, then removals.
+func updateNamespaceProperties(ctx context.Context, client *polarismanagement.APIClient, catalog string, namespace []string, req updateNamespacePropertiesPayload) error {
+	path := icebergCatalogPath(catalog, "namespaces", namespacePath(namespace), "properties")
+	if len(req.Updates) > 0 {
+		if err := doCatalogJSON(ctx, client, http.MethodPost, path, updateNamespacePropertiesPayload{Updates: req.Updates}, http.StatusOK, nil); err != nil {
+			return err
+		}
+	}
+	if len(req.Removals) > 0 {
+		return doCatalogJSON(ctx, client, http.MethodPost, path, updateNamespacePropertiesPayload{Removals: req.Removals}, http.StatusOK, nil)
+	}
+	return nil
+}
+
+func dropNamespace(ctx context.Context, client *polarismanagement.APIClient, catalog string, namespace []string) error {
+	return doCatalogJSON(ctx, client, http.MethodDelete, icebergCatalogPath(catalog, "namespaces", namespacePath(namespace)), nil, http.StatusNoContent, nil)
+}
+
+// listNamespaces returns the children of parent (the top-level namespaces when parent is
+// empty), following next-page-token until the last page.
+func listNamespaces(ctx context.Context, client *polarismanagement.APIClient, catalog string, parent []string) ([][]string, error) {
+	var all [][]string
+	token := ""
+	for {
+		q := url.Values{}
+		if len(parent) > 0 {
+			q.Set("parent", strings.Join(parent, "\x1f"))
+		}
+		if token != "" {
+			q.Set("pageToken", token)
+		}
+		path := icebergCatalogPath(catalog, "namespaces")
+		if len(q) > 0 {
+			path += "?" + q.Encode()
+		}
+		var page listNamespacesPayload
+		if err := doCatalogJSON(ctx, client, http.MethodGet, path, nil, http.StatusOK, &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page.Namespaces...)
+		if page.NextPageToken == nil || *page.NextPageToken == "" {
+			return all, nil
+		}
+		token = *page.NextPageToken
+	}
+}
+
+// sameLocation reports whether two locations are equal, ignoring the trailing slash
+// Polaris adds to every namespace location.
+func sameLocation(a, b string) bool {
+	return strings.TrimSuffix(a, "/") == strings.TrimSuffix(b, "/")
+}
+
+// parseNamespaceImportID splits "{catalog}/{ns1}[/{ns2}...]" into the catalog and the
+// namespace levels.
+func parseNamespaceImportID(id string) (catalog string, namespace []string, err error) {
+	parts := strings.Split(id, "/")
+	if len(parts) < 2 {
+		return "", nil, fmt.Errorf(`expected "{catalog}/{ns1}[/{ns2}...]", got %q`, id)
+	}
+	for _, p := range parts {
+		if p == "" {
+			return "", nil, fmt.Errorf(`expected "{catalog}/{ns1}[/{ns2}...]" without empty segments, got %q`, id)
+		}
+	}
+	return parts[0], parts[1:], nil
 }

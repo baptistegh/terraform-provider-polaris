@@ -73,6 +73,7 @@ internal/
     catalog.go                 # catalog payloads and API calls via doJSON, model conversions (shared by resource and data source)
     namespace.go               # namespace payloads and property helpers (catalog API); `location` is server-managed and never removed
     resource_catalog.go        # polaris_catalog
+    resource_namespace.go      # polaris_namespace (and datasource_namespace(s).go)
     resource_principal.go      # polaris_principal
     resource_principal_credentials.go # polaris_principal_credentials (reset/rotate; managed, not ephemeral)
     resource_principal_role.go # polaris_principal_role
@@ -158,7 +159,7 @@ Where `<type>` is the Terraform type name without the `polaris_` prefix, with sl
 - Tests that need a principal created outside Terraform (e.g. to authenticate as it) call `testCreatePrincipal(t)`, which returns its name, client ID and secret.
 - Tests that need a catalog call `testCreateCatalog(t)` — it creates a random catalog via the API and registers `t.Cleanup` to delete it. No `POLARIS_TEST_CATALOG` env var is needed.
 - Tests that need a namespace, table, view or semantic model call `testCreateNamespace`, `testCreateTable`, `testCreateView` or `testCreateSemanticModel` — same pattern. They go through `doCatalogJSON` with the `testClient(t)` management client; build new fixture helpers the same way (`testCreateCatalogObject`).
-- `docker-compose.yml` (used locally and in CI) enables the `ENABLE_CATALOG_FEDERATION` and `ENABLE_SEMANTIC_MODELS` server features that the federated catalog and semantic model grant tests need.
+- `docker-compose.yml` (used locally and in CI) enables the `ENABLE_CATALOG_FEDERATION`, `ENABLE_SEMANTIC_MODELS` and `ALLOW_NAMESPACE_CUSTOM_LOCATION` server features that the federated catalog, semantic model and custom namespace location tests need.
 
 ### Testing — MANDATORY
 
