@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -22,7 +21,7 @@ var (
 )
 
 type catalogRoleAssignmentResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type catalogRoleAssignmentResourceModel struct {
@@ -87,18 +86,12 @@ func (r *catalogRoleAssignmentResource) Create(ctx context.Context, req resource
 		return
 	}
 
-	body := polarismanagement.AssignCatalogRoleToPrincipalRoleJSONRequestBody{
+	body := polarismanagement.GrantCatalogRoleRequest{
 		CatalogRole: &polarismanagement.CatalogRole{Name: plan.CatalogRole.ValueString()},
 	}
-	httpResp, err := r.client.AssignCatalogRoleToPrincipalRole(ctx, plan.PrincipalRole.ValueString(), plan.Catalog.ValueString(), body)
-	if err != nil {
+	httpResp, err := r.client.DefaultAPI.AssignCatalogRoleToPrincipalRole(ctx, plan.PrincipalRole.ValueString(), plan.Catalog.ValueString()).GrantCatalogRoleRequest(body).Execute()
+	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {
 		resp.Diagnostics.AddError("Failed to assign catalog role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusCreated {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /principal-roles/{name}/catalog-roles/{catalog} returned HTTP %d.", httpResp.StatusCode))
 		return
 	}
 
@@ -112,25 +105,13 @@ func (r *catalogRoleAssignmentResource) Read(ctx context.Context, req resource.R
 		return
 	}
 
-	httpResp, err := r.client.ListCatalogRolesForPrincipalRole(ctx, state.PrincipalRole.ValueString(), state.Catalog.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to list catalog roles for principal role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode == http.StatusNotFound {
+	roles, httpResp, err := r.client.DefaultAPI.ListCatalogRolesForPrincipalRole(ctx, state.PrincipalRole.ValueString(), state.Catalog.ValueString()).Execute()
+	if isNotFound(httpResp) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("GET /principal-roles/{name}/catalog-roles/{catalog} returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var roles polarismanagement.CatalogRoles
-	if err := json.NewDecoder(httpResp.Body).Decode(&roles); err != nil {
-		resp.Diagnostics.AddError("Failed to decode catalog roles list", err.Error())
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
+		resp.Diagnostics.AddError("Failed to list catalog roles for principal role", err.Error())
 		return
 	}
 
@@ -155,15 +136,9 @@ func (r *catalogRoleAssignmentResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	httpResp, err := r.client.RevokeCatalogRoleFromPrincipalRole(ctx, state.PrincipalRole.ValueString(), state.Catalog.ValueString(), state.CatalogRole.ValueString())
-	if err != nil {
+	httpResp, err := r.client.DefaultAPI.RevokeCatalogRoleFromPrincipalRole(ctx, state.PrincipalRole.ValueString(), state.Catalog.ValueString(), state.CatalogRole.ValueString()).Execute()
+	if err := checkResponse(httpResp, err, http.StatusNoContent); err != nil {
 		resp.Diagnostics.AddError("Failed to revoke catalog role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusNoContent {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /principal-roles/{name}/catalog-roles/{catalog}/{role} returned HTTP %d.", httpResp.StatusCode))
 		return
 	}
 }

@@ -20,7 +20,7 @@ var (
 )
 
 type catalogGrantResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type catalogGrantResourceModel struct {

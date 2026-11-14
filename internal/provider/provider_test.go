@@ -70,55 +70,32 @@ func testCreateCatalog(t *testing.T) string {
 		t.Fatalf("testCreateCatalog: fetch token: %v", err)
 	}
 
-	managementURL := baseURL + "/api/management/v1"
-	client, err := polarismanagement.NewClient(managementURL,
-		polarismanagement.WithHTTPClient(httpClient),
-		polarismanagement.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
-			r.Header.Set("Authorization", "Bearer "+token)
-			if realm != "" {
-				r.Header.Set(defaultRealmHeader, realm)
-			}
-			return nil
-		}),
-	)
-	if err != nil {
-		t.Fatalf("testCreateCatalog: build client: %v", err)
-	}
+	client := newManagementClient(baseURL, httpClient, token, realm, defaultRealmHeader)
 
 	name := acctest.RandomWithPrefix("tf-acc")
 
 	catalog := polarismanagement.Catalog{
 		Name: name,
-		Type: polarismanagement.INTERNAL,
-		Properties: polarismanagement.Catalog_Properties{
+		Type: "INTERNAL",
+		Properties: polarismanagement.CatalogProperties{
 			DefaultBaseLocation: fmt.Sprintf("file:///tmp/%s", name),
 		},
 		StorageConfigInfo: polarismanagement.StorageConfigInfo{
-			StorageType: polarismanagement.FILE,
+			StorageType: "FILE",
 		},
 	}
 
-	resp, err := client.CreateCatalog(ctx, polarismanagement.CreateCatalogJSONRequestBody{Catalog: catalog})
-	if err != nil {
-		t.Fatalf("testCreateCatalog: API call: %v", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusCreated {
-		var body map[string]any
-		_ = json.NewDecoder(resp.Body).Decode(&body)
-		t.Fatalf("testCreateCatalog: expected 201, got %d: %v", resp.StatusCode, body)
+	_, httpResp, err := client.DefaultAPI.CreateCatalog(ctx).
+		CreateCatalogRequest(polarismanagement.CreateCatalogRequest{Catalog: catalog}).
+		Execute()
+	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {
+		t.Fatalf("testCreateCatalog: %v", err)
 	}
 
 	t.Cleanup(func() {
-		delResp, err := client.DeleteCatalog(context.Background(), name)
-		if err != nil {
+		httpResp, err := client.DefaultAPI.DeleteCatalog(context.Background(), name).Execute()
+		if err := checkResponse(httpResp, err, http.StatusNoContent); err != nil {
 			t.Logf("testCreateCatalog cleanup: delete %q: %v", name, err)
-			return
-		}
-		_ = delResp.Body.Close()
-		if delResp.StatusCode != http.StatusNoContent {
-			t.Logf("testCreateCatalog cleanup: delete %q returned HTTP %d", name, delResp.StatusCode)
 		}
 	})
 

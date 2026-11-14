@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -23,7 +22,7 @@ var (
 )
 
 type principalRoleResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type principalRoleResourceModel struct {
@@ -104,25 +103,13 @@ func (r *principalRoleResource) Create(ctx context.Context, req resource.CreateR
 		role.Properties = &props
 	}
 
-	httpResp, err := r.client.CreatePrincipalRole(ctx, polarismanagement.CreatePrincipalRoleJSONRequestBody{PrincipalRole: &role})
-	if err != nil {
+	created, httpResp, err := r.client.DefaultAPI.CreatePrincipalRole(ctx).CreatePrincipalRoleRequest(polarismanagement.CreatePrincipalRoleRequest{PrincipalRole: &role}).Execute()
+	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {
 		resp.Diagnostics.AddError("Failed to create principal role", err.Error())
 		return
 	}
-	defer func() { _ = httpResp.Body.Close() }()
 
-	if httpResp.StatusCode != http.StatusCreated {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /principal-roles returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var created polarismanagement.PrincipalRole
-	if err := json.NewDecoder(httpResp.Body).Decode(&created); err != nil {
-		resp.Diagnostics.AddError("Failed to decode create response", err.Error())
-		return
-	}
-
-	state, ds := principalRoleFromAPI(ctx, &created, plan.Properties)
+	state, ds := principalRoleFromAPI(ctx, created, plan.Properties)
 	resp.Diagnostics.Append(ds...)
 	if !resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
@@ -136,29 +123,17 @@ func (r *principalRoleResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
-	httpResp, err := r.client.GetPrincipalRole(ctx, state.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to get principal role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode == http.StatusNotFound {
+	role, httpResp, err := r.client.DefaultAPI.GetPrincipalRole(ctx, state.Name.ValueString()).Execute()
+	if isNotFound(httpResp) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("GET /principal-roles returned HTTP %d.", httpResp.StatusCode))
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
+		resp.Diagnostics.AddError("Failed to get principal role", err.Error())
 		return
 	}
 
-	var role polarismanagement.PrincipalRole
-	if err := json.NewDecoder(httpResp.Body).Decode(&role); err != nil {
-		resp.Diagnostics.AddError("Failed to decode principal role", err.Error())
-		return
-	}
-
-	next, ds := principalRoleFromAPI(ctx, &role, state.Properties)
+	next, ds := principalRoleFromAPI(ctx, role, state.Properties)
 	resp.Diagnostics.Append(ds...)
 	if !resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, next)...)
@@ -181,28 +156,16 @@ func (r *principalRoleResource) Update(ctx context.Context, req resource.UpdateR
 		}
 	}
 
-	httpResp, err := r.client.UpdatePrincipalRole(ctx, state.Name.ValueString(), polarismanagement.UpdatePrincipalRoleJSONRequestBody{
-		CurrentEntityVersion: int(state.EntityVersion.ValueInt64()),
+	updated, httpResp, err := r.client.DefaultAPI.UpdatePrincipalRole(ctx, state.Name.ValueString()).UpdatePrincipalRoleRequest(polarismanagement.UpdatePrincipalRoleRequest{
+		CurrentEntityVersion: int32(state.EntityVersion.ValueInt64()),
 		Properties:           props,
-	})
-	if err != nil {
+	}).Execute()
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
 		resp.Diagnostics.AddError("Failed to update principal role", err.Error())
 		return
 	}
-	defer func() { _ = httpResp.Body.Close() }()
 
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("PUT /principal-roles returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var updated polarismanagement.PrincipalRole
-	if err := json.NewDecoder(httpResp.Body).Decode(&updated); err != nil {
-		resp.Diagnostics.AddError("Failed to decode update response", err.Error())
-		return
-	}
-
-	next, ds := principalRoleFromAPI(ctx, &updated, plan.Properties)
+	next, ds := principalRoleFromAPI(ctx, updated, plan.Properties)
 	resp.Diagnostics.Append(ds...)
 	if !resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, next)...)
@@ -216,15 +179,9 @@ func (r *principalRoleResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
-	httpResp, err := r.client.DeletePrincipalRole(ctx, state.Name.ValueString())
-	if err != nil {
+	httpResp, err := r.client.DefaultAPI.DeletePrincipalRole(ctx, state.Name.ValueString()).Execute()
+	if err := checkResponse(httpResp, err, http.StatusNoContent); err != nil {
 		resp.Diagnostics.AddError("Failed to delete principal role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusNoContent {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /principal-roles returned HTTP %d.", httpResp.StatusCode))
 		return
 	}
 }

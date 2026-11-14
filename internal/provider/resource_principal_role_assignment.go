@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -22,7 +21,7 @@ var (
 )
 
 type principalRoleAssignmentResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type principalRoleAssignmentResourceModel struct {
@@ -79,18 +78,12 @@ func (r *principalRoleAssignmentResource) Create(ctx context.Context, req resour
 		return
 	}
 
-	body := polarismanagement.AssignPrincipalRoleJSONRequestBody{
+	body := polarismanagement.GrantPrincipalRoleRequest{
 		PrincipalRole: &polarismanagement.PrincipalRole{Name: plan.PrincipalRole.ValueString()},
 	}
-	httpResp, err := r.client.AssignPrincipalRole(ctx, plan.Principal.ValueString(), body)
-	if err != nil {
+	httpResp, err := r.client.DefaultAPI.AssignPrincipalRole(ctx, plan.Principal.ValueString()).GrantPrincipalRoleRequest(body).Execute()
+	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {
 		resp.Diagnostics.AddError("Failed to assign principal role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusCreated {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /principals/{name}/principal-roles returned HTTP %d.", httpResp.StatusCode))
 		return
 	}
 
@@ -104,25 +97,13 @@ func (r *principalRoleAssignmentResource) Read(ctx context.Context, req resource
 		return
 	}
 
-	httpResp, err := r.client.ListPrincipalRolesAssigned(ctx, state.Principal.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to list principal roles", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode == http.StatusNotFound {
+	roles, httpResp, err := r.client.DefaultAPI.ListPrincipalRolesAssigned(ctx, state.Principal.ValueString()).Execute()
+	if isNotFound(httpResp) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("GET /principals/{name}/principal-roles returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var roles polarismanagement.PrincipalRoles
-	if err := json.NewDecoder(httpResp.Body).Decode(&roles); err != nil {
-		resp.Diagnostics.AddError("Failed to decode roles list", err.Error())
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
+		resp.Diagnostics.AddError("Failed to list principal roles", err.Error())
 		return
 	}
 
@@ -147,15 +128,9 @@ func (r *principalRoleAssignmentResource) Delete(ctx context.Context, req resour
 		return
 	}
 
-	httpResp, err := r.client.RevokePrincipalRole(ctx, state.Principal.ValueString(), state.PrincipalRole.ValueString())
-	if err != nil {
+	httpResp, err := r.client.DefaultAPI.RevokePrincipalRole(ctx, state.Principal.ValueString(), state.PrincipalRole.ValueString()).Execute()
+	if err := checkResponse(httpResp, err, http.StatusNoContent); err != nil {
 		resp.Diagnostics.AddError("Failed to revoke principal role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusNoContent {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /principals/{name}/principal-roles/{role} returned HTTP %d.", httpResp.StatusCode))
 		return
 	}
 }

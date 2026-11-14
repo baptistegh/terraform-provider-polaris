@@ -2,11 +2,9 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"github.com/baptistegh/terraform-provider-polaris/pkg/polarismanagement"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -97,25 +95,13 @@ func (d *principalDataSource) Read(ctx context.Context, req datasource.ReadReque
 		name = d.pd.ClientID
 	}
 
-	httpResp, err := d.pd.Client.GetPrincipal(ctx, name)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to get principal", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode == http.StatusNotFound {
+	principal, httpResp, err := d.pd.Client.DefaultAPI.GetPrincipal(ctx, name).Execute()
+	if isNotFound(httpResp) {
 		resp.Diagnostics.AddError("Principal not found", fmt.Sprintf("No principal with name %q exists.", name))
 		return
 	}
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("GET principal returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var principal polarismanagement.Principal
-	if err := json.NewDecoder(httpResp.Body).Decode(&principal); err != nil {
-		resp.Diagnostics.AddError("Failed to decode principal", err.Error())
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
+		resp.Diagnostics.AddError("Failed to get principal", err.Error())
 		return
 	}
 

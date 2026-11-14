@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -24,7 +23,7 @@ var (
 )
 
 type catalogRoleResource struct {
-	client *polarismanagement.Client
+	client *polarismanagement.APIClient
 }
 
 type catalogRoleResourceModel struct {
@@ -113,25 +112,13 @@ func (r *catalogRoleResource) Create(ctx context.Context, req resource.CreateReq
 		role.Properties = &props
 	}
 
-	httpResp, err := r.client.CreateCatalogRole(ctx, plan.Catalog.ValueString(), polarismanagement.CreateCatalogRoleJSONRequestBody{CatalogRole: &role})
-	if err != nil {
+	created, httpResp, err := r.client.DefaultAPI.CreateCatalogRole(ctx, plan.Catalog.ValueString()).CreateCatalogRoleRequest(polarismanagement.CreateCatalogRoleRequest{CatalogRole: &role}).Execute()
+	if err := checkResponse(httpResp, err, http.StatusCreated); err != nil {
 		resp.Diagnostics.AddError("Failed to create catalog role", err.Error())
 		return
 	}
-	defer func() { _ = httpResp.Body.Close() }()
 
-	if httpResp.StatusCode != http.StatusCreated {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("POST /catalog-roles returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var created polarismanagement.CatalogRole
-	if err := json.NewDecoder(httpResp.Body).Decode(&created); err != nil {
-		resp.Diagnostics.AddError("Failed to decode create response", err.Error())
-		return
-	}
-
-	state, ds := catalogRoleFromAPI(ctx, &created, plan.Catalog.ValueString(), plan.Properties)
+	state, ds := catalogRoleFromAPI(ctx, created, plan.Catalog.ValueString(), plan.Properties)
 	resp.Diagnostics.Append(ds...)
 	if !resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
@@ -145,29 +132,17 @@ func (r *catalogRoleResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	httpResp, err := r.client.GetCatalogRole(ctx, state.Catalog.ValueString(), state.Name.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to get catalog role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode == http.StatusNotFound {
+	role, httpResp, err := r.client.DefaultAPI.GetCatalogRole(ctx, state.Catalog.ValueString(), state.Name.ValueString()).Execute()
+	if isNotFound(httpResp) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("GET /catalog-roles returned HTTP %d.", httpResp.StatusCode))
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
+		resp.Diagnostics.AddError("Failed to get catalog role", err.Error())
 		return
 	}
 
-	var role polarismanagement.CatalogRole
-	if err := json.NewDecoder(httpResp.Body).Decode(&role); err != nil {
-		resp.Diagnostics.AddError("Failed to decode catalog role", err.Error())
-		return
-	}
-
-	next, ds := catalogRoleFromAPI(ctx, &role, state.Catalog.ValueString(), state.Properties)
+	next, ds := catalogRoleFromAPI(ctx, role, state.Catalog.ValueString(), state.Properties)
 	resp.Diagnostics.Append(ds...)
 	if !resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, next)...)
@@ -190,28 +165,16 @@ func (r *catalogRoleResource) Update(ctx context.Context, req resource.UpdateReq
 		}
 	}
 
-	httpResp, err := r.client.UpdateCatalogRole(ctx, state.Catalog.ValueString(), state.Name.ValueString(), polarismanagement.UpdateCatalogRoleJSONRequestBody{
-		CurrentEntityVersion: int(state.EntityVersion.ValueInt64()),
+	updated, httpResp, err := r.client.DefaultAPI.UpdateCatalogRole(ctx, state.Catalog.ValueString(), state.Name.ValueString()).UpdateCatalogRoleRequest(polarismanagement.UpdateCatalogRoleRequest{
+		CurrentEntityVersion: int32(state.EntityVersion.ValueInt64()),
 		Properties:           props,
-	})
-	if err != nil {
+	}).Execute()
+	if err := checkResponse(httpResp, err, http.StatusOK); err != nil {
 		resp.Diagnostics.AddError("Failed to update catalog role", err.Error())
 		return
 	}
-	defer func() { _ = httpResp.Body.Close() }()
 
-	if httpResp.StatusCode != http.StatusOK {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("PUT /catalog-roles returned HTTP %d.", httpResp.StatusCode))
-		return
-	}
-
-	var updated polarismanagement.CatalogRole
-	if err := json.NewDecoder(httpResp.Body).Decode(&updated); err != nil {
-		resp.Diagnostics.AddError("Failed to decode update response", err.Error())
-		return
-	}
-
-	next, ds := catalogRoleFromAPI(ctx, &updated, state.Catalog.ValueString(), plan.Properties)
+	next, ds := catalogRoleFromAPI(ctx, updated, state.Catalog.ValueString(), plan.Properties)
 	resp.Diagnostics.Append(ds...)
 	if !resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, next)...)
@@ -225,15 +188,9 @@ func (r *catalogRoleResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	httpResp, err := r.client.DeleteCatalogRole(ctx, state.Catalog.ValueString(), state.Name.ValueString())
-	if err != nil {
+	httpResp, err := r.client.DefaultAPI.DeleteCatalogRole(ctx, state.Catalog.ValueString(), state.Name.ValueString()).Execute()
+	if err := checkResponse(httpResp, err, http.StatusNoContent); err != nil {
 		resp.Diagnostics.AddError("Failed to delete catalog role", err.Error())
-		return
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusNoContent {
-		resp.Diagnostics.AddError("Unexpected API response", fmt.Sprintf("DELETE /catalog-roles returned HTTP %d.", httpResp.StatusCode))
 		return
 	}
 }

@@ -1,11 +1,9 @@
 package provider
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/baptistegh/terraform-provider-polaris/pkg/polarismanagement"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -54,66 +52,30 @@ type grantsListResponse struct {
 }
 
 // listGrants fetches all grants for a catalog role and returns the raw payload list.
-func listGrants(ctx context.Context, client *polarismanagement.Client, catalog, catalogRole string) ([]grantPayload, error) {
-	httpResp, err := client.ListGrantsForCatalogRole(ctx, catalog, catalogRole)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = httpResp.Body.Close() }()
+// The grant endpoints are called through doJSON rather than the generated client:
+// grants are polymorphic (allOf + discriminator) and the generated GrantResource model
+// only carries the "type" field, which would drop privilege/namespace/table/... fields.
 
-	if httpResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET /grants returned HTTP %d", httpResp.StatusCode)
-	}
+func grantsPath(catalog, catalogRole string) string {
+	return "/catalogs/" + url.PathEscape(catalog) + "/catalog-roles/" + url.PathEscape(catalogRole) + "/grants"
+}
 
+func listGrants(ctx context.Context, client *polarismanagement.APIClient, catalog, catalogRole string) ([]grantPayload, error) {
 	var resp grantsListResponse
-	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
-		return nil, fmt.Errorf("decode grants list: %w", err)
+	if err := doJSON(ctx, client, http.MethodGet, grantsPath(catalog, catalogRole), nil, http.StatusOK, &resp); err != nil {
+		return nil, err
 	}
 	return resp.Grants, nil
 }
 
-// addGrant sends a PUT request to add a grant to a catalog role.
-func addGrant(ctx context.Context, client *polarismanagement.Client, catalog, catalogRole string, grant any) error {
-	body, err := json.Marshal(map[string]any{"grant": grant})
-	if err != nil {
-		return fmt.Errorf("marshal grant: %w", err)
-	}
-	httpResp, err := client.AddGrantToCatalogRoleWithBody(ctx, catalog, catalogRole, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusCreated {
-		var errBody map[string]any
-		_ = json.NewDecoder(httpResp.Body).Decode(&errBody)
-		return fmt.Errorf("PUT /grants returned HTTP %d: %v", httpResp.StatusCode, errBody)
-	}
-	return nil
+func addGrant(ctx context.Context, client *polarismanagement.APIClient, catalog, catalogRole string, grant any) error {
+	return doJSON(ctx, client, http.MethodPut, grantsPath(catalog, catalogRole), map[string]any{"grant": grant}, http.StatusCreated, nil)
 }
 
-// revokeGrant sends a POST request to revoke a grant from a catalog role.
-// The revoke endpoint returns 201 on success (per the Polaris management spec).
-func revokeGrant(ctx context.Context, client *polarismanagement.Client, catalog, catalogRole string, grant any) error {
-	body, err := json.Marshal(map[string]any{"grant": grant})
-	if err != nil {
-		return fmt.Errorf("marshal grant: %w", err)
-	}
-	httpResp, err := client.RevokeGrantFromCatalogRoleWithBody(ctx, catalog, catalogRole, nil, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-
-	if httpResp.StatusCode != http.StatusCreated {
-		var errBody map[string]any
-		_ = json.NewDecoder(httpResp.Body).Decode(&errBody)
-		return fmt.Errorf("POST /grants (revoke) returned HTTP %d: %v", httpResp.StatusCode, errBody)
-	}
-	return nil
+func revokeGrant(ctx context.Context, client *polarismanagement.APIClient, catalog, catalogRole string, grant any) error {
+	return doJSON(ctx, client, http.MethodPost, grantsPath(catalog, catalogRole), map[string]any{"grant": grant}, http.StatusCreated, nil)
 }
 
-// namespaceEqual compares two namespace slices for equality.
 func namespaceEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
