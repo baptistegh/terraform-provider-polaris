@@ -28,22 +28,38 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      # A PAT (or GitHub App token) is required: PRs opened with the default
-      # GITHUB_TOKEN do not trigger CI, so the required checks would never run
-      # on the release PR.
-      - name: Check release token
+      # release-please runs with a GitHub App installation token, not the default
+      # GITHUB_TOKEN or a PAT:
+      # - PRs opened with GITHUB_TOKEN do not trigger CI, so the required checks
+      #   would never run on the release PR;
+      # - commits GitHub Apps create through the API are signed by GitHub, which
+      #   the "Require signed commits" rule on main needs (PAT commits are not).
+      # Setup: repository variable RELEASE_PLEASE_APP_CLIENT_ID and secret
+      # RELEASE_PLEASE_APP_PRIVATE_KEY, from an app installed on this repository
+      # with Contents, Pull requests and Issues read & write.
+      - name: Check release app configuration
         env:
-          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          CLIENT_ID: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID }}
+          PRIVATE_KEY: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
         run: |
-          if [ -z "$RELEASE_PLEASE_TOKEN" ]; then
-            echo "::error::Missing RELEASE_PLEASE_TOKEN secret (fine-grained PAT with contents, pull requests and issues read/write on this repository)."
+          if [ -z "$CLIENT_ID" ] || [ -z "$PRIVATE_KEY" ]; then
+            echo "::error::Missing the release-please GitHub App: set the RELEASE_PLEASE_APP_CLIENT_ID repository variable and the RELEASE_PLEASE_APP_PRIVATE_KEY secret."
             exit 1
           fi
+
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
 
       - id: release
         uses: googleapis/release-please-action@v5
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
